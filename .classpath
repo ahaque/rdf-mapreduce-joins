@@ -25,5 +25,6 @@
 	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hbase0.96.0/hbase-shell-0.96.0-hadoop2.jar"/>
 	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hbase0.96.0/hbase-testing-util-0.96.0-hadoop2.jar"/>
 	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hbase0.96.0/hbase-thrift-0.96.0-hadoop2.jar"/>
+	<classpathentry kind="lib" path="C:/Users/Albert/Desktop/htrace-1.50.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>

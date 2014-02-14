@@ -12,6 +12,7 @@ import org.apache.hadoop.hbase.mapreduce.TableReducer;
 import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
+import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.mapreduce.lib.output.NullOutputFormat;
 
@@ -52,21 +53,20 @@ public class ReduceSideJoin {
 		scan.setCaching(500);        
 		scan.setCacheBlocks(false);
 		
+		// Mapper settings
 		TableMapReduceUtil.initTableMapperJob(
 				HBASE_TABLE_NAME,        // input HBase table name
 				scan,             // Scan instance to control CF and attribute selection
 				MyMapper.class,   // mapper
-				null,             // mapper output key
-				null,             // mapper output value
+				Text.class,         // mapper output key
+				IntWritable.class,  // mapper output value
 				job);
-		//job.setOutputFormatClass(NullOutputFormat.class);   // because we aren't emitting anything from mapper
+
+		// Reducer settings
+		job.setReducerClass(MyReducer.class);    // reducer class
+		job.setNumReduceTasks(1);    // at least one, adjust as required
 		
-		TableMapReduceUtil.initTableReducerJob(
-				HBASE_TABLE_NAME,        // output table
-				MyTableReducer.class,    // reducer class
-				job);
-		
-		FileOutputFormat.setOutputPath(job, new Path("/tmp/mr/mySummaryFile"));
+		FileOutputFormat.setOutputPath(job, new Path("data/2014-13-02_experiment.txt"));
 
 		try {
 			System.exit(job.waitForCompletion(true) ? 0 : 1);
@@ -88,7 +88,7 @@ public class ReduceSideJoin {
 		}
 	}
 	
-	public static class MyTableReducer extends TableReducer<Text, IntWritable, ImmutableBytesWritable>  {
+	public static class MyReducer extends Reducer<Text, IntWritable, Text, IntWritable>  {
 		
 		public void reduce(Text key, Iterable<IntWritable> values, Context context) throws IOException, InterruptedException {
 			int i = 0;
