@@ -8,13 +8,11 @@ import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.mapreduce.TableMapReduceUtil;
 import org.apache.hadoop.hbase.mapreduce.TableMapper;
-import org.apache.hadoop.hbase.mapreduce.TableReducer;
 import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
-import org.apache.hadoop.mapreduce.lib.output.NullOutputFormat;
 
 
 public class ReduceSideJoin {
@@ -23,14 +21,14 @@ public class ReduceSideJoin {
 	
 	public static void main(String[] args) throws ClassNotFoundException, IOException, InterruptedException {
 
-		String USAGE_MSG = "  Arguments: <zk quorum>";
+		//String USAGE_MSG = "  Arguments: <zk quorum>";
 
 //		if (args == null || args.length != 1) {
 //			System.out.println(USAGE_MSG);
 //			System.exit(0);
 //		}
 
-		Job job = startJob(args);
+		startJob(args);
 	}
 	
 	@SuppressWarnings("deprecation")
@@ -57,13 +55,13 @@ public class ReduceSideJoin {
 		TableMapReduceUtil.initTableMapperJob(
 				HBASE_TABLE_NAME,        // input HBase table name
 				scan,             // Scan instance to control CF and attribute selection
-				MyMapper.class,   // mapper
+				ReduceSideJoin_Mapper.class,   // mapper
 				Text.class,         // mapper output key
 				IntWritable.class,  // mapper output value
 				job);
 
 		// Reducer settings
-		job.setReducerClass(MyReducer.class);    // reducer class
+		job.setReducerClass(ReduceSideJoin_Reducer.class);    // reducer class
 		job.setNumReduceTasks(1);    // at least one, adjust as required
 		
 		FileOutputFormat.setOutputPath(job, new Path("data/2014-13-02_experiment.txt"));
@@ -76,19 +74,19 @@ public class ReduceSideJoin {
 		return job;
 	}
 	
-	public static class MyMapper extends TableMapper<Text, IntWritable> {
+	public static class ReduceSideJoin_Mapper extends TableMapper<Text, IntWritable> {
 		
 		private final IntWritable ONE = new IntWritable(1);
 		private Text text = new Text();
 
 		public void map(ImmutableBytesWritable row, Result value, Context context) throws InterruptedException, IOException {
-			String val = new String(value.getValue("p".getBytes(), "dc_date".getBytes()));
+			String val = new String(value.getValue("p".getBytes(), "bsbm_producer".getBytes()));
 			text.set(val);
 			context.write(text, ONE);
 		}
 	}
 	
-	public static class MyReducer extends Reducer<Text, IntWritable, Text, IntWritable>  {
+	public static class ReduceSideJoin_Reducer extends Reducer<Text, IntWritable, Text, IntWritable>  {
 		
 		public void reduce(Text key, Iterable<IntWritable> values, Context context) throws IOException, InterruptedException {
 			int i = 0;
