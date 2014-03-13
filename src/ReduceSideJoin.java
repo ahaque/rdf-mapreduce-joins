@@ -5,6 +5,7 @@
  */
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
@@ -29,6 +30,8 @@ import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.hbase.Cell;
 import org.apache.hadoop.hbase.CellUtil;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 public class ReduceSideJoin {
 	
 	// Query Information
@@ -37,7 +40,7 @@ public class ReduceSideJoin {
 	private static String ProductType = "hello";
 	private static double x = 0.0;
 
-	private byte[] COLUMN_FAMILY_AS_BYTES = "o".getBytes();
+	private static byte[] CF_AS_BYTES = "o".getBytes();
 	private byte[] fakeValue = Bytes.toBytes("DOESNOTEXIST");
 	private byte[] productName = Bytes.toBytes("product_name_here");
 	
@@ -107,7 +110,7 @@ public class ReduceSideJoin {
 	private Filter reviewsFilter() {
 		// select only the reviews that have product as a column name
 		SingleColumnValueFilter filter = new SingleColumnValueFilter(
-				COLUMN_FAMILY_AS_BYTES, productName,
+				CF_AS_BYTES, productName,
 				CompareFilter.CompareOp.NOT_EQUAL, fakeValue);
 		filter.setFilterIfMissing(true);
 		return filter;
@@ -116,7 +119,7 @@ public class ReduceSideJoin {
 	private Filter offersFilter() {
 		// select only the rows that have product as a column value.
 		SingleColumnValueFilter filter = new SingleColumnValueFilter(
-				COLUMN_FAMILY_AS_BYTES, productName,
+				CF_AS_BYTES, productName,
 				CompareFilter.CompareOp.NOT_EQUAL, fakeValue);
 		filter.setFilterIfMissing(true);
 		return filter;
@@ -124,28 +127,49 @@ public class ReduceSideJoin {
 	
 	public static class ReduceSideJoin_Mapper extends TableMapper<Text, IntWritable> {
 		
-		private final IntWritable ONE = new IntWritable(1);
 		private Text text = new Text();
 
 		public void map(ImmutableBytesWritable row, Result value, Context context) throws InterruptedException, IOException {
-			// BSBM Query 1. Subject must satisfy all triple patterns
-			// Non equality checks in the query appear as true here
-			boolean[] queryTriplePatterns = new boolean[6];
-			queryTriplePatterns[0] = true;
-			queryTriplePatterns[1] = false;
-			queryTriplePatterns[2] = false;
-			queryTriplePatterns[3] = false;
-			queryTriplePatterns[4] = true;
-			queryTriplePatterns[5] = false;
-			
-			// Get all key-values for a row
-		    Cell[] cells = value.rawCells();
-		    StringBuilder predicate = new StringBuilder();
-		    StringBuilder object = new StringBuilder();
-		    for (Cell kv : cells) {
-
-		    }
-		    text.set(object.toString());
+			/* TP=Triple Pattern
+			 * BSBM Query 1
+			   SELECT DISTINCT ?product ?label
+				WHERE { 
+				 [TP-1] ?product rdfs:label ?label .  
+				 [TP-2] ?product a %ProductType% .
+				 [TP-3] ?product bsbm:productFeature %ProductFeature1% . 
+				 [TP-4] ?product bsbm:productFeature %ProductFeature2% . 
+				 [TP-5] ?product bsbm:productPropertyNumeric1 ?value1 . 
+				 [TP-6] FILTER (?value1 > %x%) 
+					}
+				ORDER BY ?label
+				LIMIT 10
+			 */
+			// TP-2
+			byte[] item2 = value.getValue(CF_AS_BYTES, Bytes.toBytes(ProductType));
+			if ((item2 == null) || (item2 != Bytes.toBytes("rdf_type"))) {
+				return;
+			}
+			// TP-3
+			byte[] item3 = value.getValue(CF_AS_BYTES, Bytes.toBytes(ProductFeature1));
+			if ((item3 == null) || (item3 != Bytes.toBytes("bsbm_productFeature"))) {
+				return;
+			}
+			// TP-4
+			byte[] item4 = value.getValue(CF_AS_BYTES, Bytes.toBytes(ProductFeature2));
+			if ((item4 == null) || (item4 != Bytes.toBytes("bsbm_productFeature"))) {
+				return;
+			}
+			// TP-6 - Since this is a literal, the predicate is the column name
+			byte[] item6 = value.getValue(CF_AS_BYTES, Bytes.toBytes("bsbm_productPropertyNumeric1"));
+			if ((item6 == null) {
+				return;
+			}
+			double number6 = ByteBuffer.wrap(item6).getDouble();
+			if (number6 <= x) {
+				return;
+			}
+			// Get the key/subject
+		    text.set(new String(value.getRow()));
 	    	context.write(text, ONE);
 		}
 	}
