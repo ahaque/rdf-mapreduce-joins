@@ -5,20 +5,59 @@
 	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hadoop2.2.0/hadoop/common/lib/activation-1.1.jar"/>
 	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hadoop2.2.0/hadoop/common/lib/asm-3.2.jar"/>
 	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hadoop2.2.0/hadoop/common/lib/avro-1.7.4.jar"/>
+	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hadoop2.2.0/hadoop/common/lib/commons-beanutils-1.7.0.jar"/>
+	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hadoop2.2.0/hadoop/common/lib/commons-beanutils-core-1.8.0.jar"/>
+	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hadoop2.2.0/hadoop/common/lib/commons-cli-1.2.jar"/>
+	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hadoop2.2.0/hadoop/common/lib/commons-codec-1.4.jar"/>
+	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hadoop2.2.0/hadoop/common/lib/commons-collections-3.2.1.jar"/>
 	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hadoop2.2.0/hadoop/common/lib/commons-compress-1.4.1.jar"/>
+	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hadoop2.2.0/hadoop/common/lib/commons-configuration-1.6.jar"/>
+	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hadoop2.2.0/hadoop/common/lib/commons-digester-1.8.jar"/>
+	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hadoop2.2.0/hadoop/common/lib/commons-el-1.0.jar"/>
+	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hadoop2.2.0/hadoop/common/lib/commons-httpclient-3.1.jar"/>
+	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hadoop2.2.0/hadoop/common/lib/commons-io-2.1.jar"/>
+	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hadoop2.2.0/hadoop/common/lib/commons-lang-2.5.jar"/>
+	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hadoop2.2.0/hadoop/common/lib/commons-logging-1.1.1.jar"/>
+	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hadoop2.2.0/hadoop/common/lib/commons-math-2.1.jar"/>
+	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hadoop2.2.0/hadoop/common/lib/commons-net-3.1.jar"/>
+	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hadoop2.2.0/hadoop/common/lib/guava-11.0.2.jar"/>
 	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hadoop2.2.0/hadoop/common/lib/hadoop-annotations-2.2.0.jar"/>
 	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hadoop2.2.0/hadoop/common/lib/hadoop-auth-2.2.0.jar"/>
+	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hadoop2.2.0/hadoop/common/lib/jackson-core-asl-1.8.8.jar"/>
+	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hadoop2.2.0/hadoop/common/lib/jackson-jaxrs-1.8.8.jar"/>
+	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hadoop2.2.0/hadoop/common/lib/jackson-mapper-asl-1.8.8.jar"/>
+	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hadoop2.2.0/hadoop/common/lib/jackson-xc-1.8.8.jar"/>
+	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hadoop2.2.0/hadoop/common/lib/jasper-compiler-5.5.23.jar"/>
+	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hadoop2.2.0/hadoop/common/lib/jasper-runtime-5.5.23.jar"/>
+	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hadoop2.2.0/hadoop/common/lib/jaxb-api-2.2.2.jar"/>
+	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hadoop2.2.0/hadoop/common/lib/jaxb-impl-2.2.3-1.jar"/>
 	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hadoop2.2.0/hadoop/common/lib/jersey-core-1.9.jar"/>
 	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hadoop2.2.0/hadoop/common/lib/jersey-json-1.9.jar"/>
 	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hadoop2.2.0/hadoop/common/lib/jersey-server-1.9.jar"/>
+	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hadoop2.2.0/hadoop/common/lib/jets3t-0.6.1.jar"/>
+	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hadoop2.2.0/hadoop/common/lib/jettison-1.1.jar"/>
+	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hadoop2.2.0/hadoop/common/lib/jetty-6.1.26.jar"/>
+	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hadoop2.2.0/hadoop/common/lib/jetty-util-6.1.26.jar"/>
+	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hadoop2.2.0/hadoop/common/lib/jsch-0.1.42.jar"/>
+	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hadoop2.2.0/hadoop/common/lib/jsp-api-2.1.jar"/>
+	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hadoop2.2.0/hadoop/common/lib/jsr305-1.3.9.jar"/>
 	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hadoop2.2.0/hadoop/common/lib/junit-4.8.2.jar"/>
+	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hadoop2.2.0/hadoop/common/lib/log4j-1.2.17.jar"/>
 	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hadoop2.2.0/hadoop/common/lib/mockito-all-1.8.5.jar"/>
+	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hadoop2.2.0/hadoop/common/lib/netty-3.6.2.Final.jar"/>
+	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hadoop2.2.0/hadoop/common/lib/paranamer-2.3.jar"/>
+	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hadoop2.2.0/hadoop/common/lib/protobuf-java-2.5.0.jar"/>
+	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hadoop2.2.0/hadoop/common/lib/servlet-api-2.5.jar"/>
 	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hadoop2.2.0/hadoop/common/lib/slf4j-api-1.7.5.jar"/>
 	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hadoop2.2.0/hadoop/common/lib/slf4j-log4j12-1.7.5.jar"/>
 	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hadoop2.2.0/hadoop/common/lib/snappy-java-1.0.4.1.jar"/>
-	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hadoop2.2.0/hadoop/hdfs/hadoop-hdfs-2.2.0.jar"/>
-	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hadoop2.2.0/hadoop/hdfs/hadoop-hdfs-2.2.0-tests.jar"/>
-	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hadoop2.2.0/hadoop/hdfs/hadoop-hdfs-nfs-2.2.0.jar"/>
+	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hadoop2.2.0/hadoop/common/lib/stax-api-1.0.1.jar"/>
+	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hadoop2.2.0/hadoop/common/lib/xmlenc-0.52.jar"/>
+	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hadoop2.2.0/hadoop/common/lib/xz-1.0.jar"/>
+	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hadoop2.2.0/hadoop/common/lib/zookeeper-3.4.5.jar"/>
+	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hadoop2.2.0/hadoop/common/hadoop-common-2.2.0.jar"/>
+	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hadoop2.2.0/hadoop/common/hadoop-common-2.2.0-tests.jar"/>
+	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hadoop2.2.0/hadoop/common/hadoop-nfs-2.2.0.jar"/>
 	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hadoop2.2.0/hadoop/mapreduce/hadoop-mapreduce-client-app-2.2.0.jar"/>
 	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hadoop2.2.0/hadoop/mapreduce/hadoop-mapreduce-client-common-2.2.0.jar"/>
 	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hadoop2.2.0/hadoop/mapreduce/hadoop-mapreduce-client-core-2.2.0.jar"/>
@@ -28,6 +67,9 @@
 	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hadoop2.2.0/hadoop/mapreduce/hadoop-mapreduce-client-jobclient-2.2.0-tests.jar"/>
 	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hadoop2.2.0/hadoop/mapreduce/hadoop-mapreduce-client-shuffle-2.2.0.jar"/>
 	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hadoop2.2.0/hadoop/mapreduce/hadoop-mapreduce-examples-2.2.0.jar"/>
+	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hadoop2.2.0/hadoop/hdfs/hadoop-hdfs-2.2.0.jar"/>
+	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hadoop2.2.0/hadoop/hdfs/hadoop-hdfs-2.2.0-tests.jar"/>
+	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hadoop2.2.0/hadoop/hdfs/hadoop-hdfs-nfs-2.2.0.jar"/>
 	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hadoop2.2.0/hadoop/tools/lib/hadoop-archives-2.2.0.jar"/>
 	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hadoop2.2.0/hadoop/tools/lib/hadoop-datajoin-2.2.0.jar"/>
 	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hadoop2.2.0/hadoop/tools/lib/hadoop-distcp-2.2.0.jar"/>
@@ -46,43 +88,12 @@
 	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hadoop2.2.0/hadoop/yarn/hadoop-yarn-server-tests-2.2.0.jar"/>
 	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hadoop2.2.0/hadoop/yarn/hadoop-yarn-server-web-proxy-2.2.0.jar"/>
 	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hadoop2.2.0/hadoop/yarn/hadoop-yarn-site-2.2.0.jar"/>
-	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/htrace-1.50.jar"/>
-	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hbase0.96.0/aopalliance-1.0.jar"/>
-	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hbase0.96.0/commons-beanutils-1.7.0.jar"/>
-	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hbase0.96.0/commons-beanutils-core-1.8.0.jar"/>
-	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hbase0.96.0/commons-cli-1.2.jar"/>
-	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hbase0.96.0/commons-codec-1.7.jar"/>
-	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hbase0.96.0/commons-collections-3.2.1.jar"/>
-	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hbase0.96.0/commons-configuration-1.6.jar"/>
-	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hbase0.96.0/commons-daemon-1.0.13.jar"/>
-	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hbase0.96.0/commons-digester-1.8.jar"/>
-	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hbase0.96.0/commons-el-1.0.jar"/>
-	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hbase0.96.0/commons-httpclient-3.1.jar"/>
-	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hbase0.96.0/commons-io-2.4.jar"/>
-	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hbase0.96.0/commons-lang-2.6.jar"/>
-	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hbase0.96.0/commons-logging-1.1.1.jar"/>
-	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hbase0.96.0/commons-math-2.2.jar"/>
-	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hbase0.96.0/commons-net-3.1.jar"/>
-	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hbase0.96.0/core-3.1.1.jar"/>
-	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hbase0.96.0/findbugs-annotations-1.3.9-1.jar"/>
-	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hbase0.96.0/gmbal-api-only-3.0.0-b023.jar"/>
-	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hbase0.96.0/grizzly-framework-2.1.1.jar"/>
-	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hbase0.96.0/grizzly-framework-2.1.1-tests.jar"/>
-	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hbase0.96.0/grizzly-http-2.1.1.jar"/>
-	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hbase0.96.0/grizzly-http-server-2.1.1.jar"/>
-	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hbase0.96.0/grizzly-http-servlet-2.1.1.jar"/>
-	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hbase0.96.0/grizzly-rcm-2.1.1.jar"/>
-	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hbase0.96.0/guava-12.0.1.jar"/>
-	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hbase0.96.0/guice-3.0.jar"/>
-	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hbase0.96.0/guice-servlet-3.0.jar"/>
-	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hbase0.96.0/hadoop-auth-2.1.0-beta.jar"/>
-	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hbase0.96.0/hadoop-client-2.1.0-beta.jar"/>
-	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hbase0.96.0/hadoop-common-2.1.0-beta.jar"/>
 	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hbase0.96.0/hbase-client-0.96.0-hadoop2.jar"/>
 	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hbase0.96.0/hbase-common-0.96.0-hadoop2.jar"/>
 	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hbase0.96.0/hbase-common-0.96.0-hadoop2-tests.jar"/>
 	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hbase0.96.0/hbase-examples-0.96.0-hadoop2.jar"/>
 	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hbase0.96.0/hbase-hadoop2-compat-0.96.0-hadoop2.jar"/>
+	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hbase0.96.0/hbase-hadoop-compat-0.96.0-hadoop2.jar"/>
 	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hbase0.96.0/hbase-it-0.96.0-hadoop2.jar"/>
 	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hbase0.96.0/hbase-it-0.96.0-hadoop2-tests.jar"/>
 	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hbase0.96.0/hbase-prefix-tree-0.96.0-hadoop2.jar"/>
@@ -92,48 +103,6 @@
 	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hbase0.96.0/hbase-shell-0.96.0-hadoop2.jar"/>
 	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hbase0.96.0/hbase-testing-util-0.96.0-hadoop2.jar"/>
 	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hbase0.96.0/hbase-thrift-0.96.0-hadoop2.jar"/>
-	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hbase0.96.0/high-scale-lib-1.1.1.jar"/>
 	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hbase0.96.0/htrace-core-2.01.jar"/>
-	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hbase0.96.0/httpclient-4.1.3.jar"/>
-	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hbase0.96.0/httpcore-4.1.3.jar"/>
-	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hbase0.96.0/jackson-core-asl-1.8.8.jar"/>
-	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hbase0.96.0/jackson-jaxrs-1.8.8.jar"/>
-	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hbase0.96.0/jackson-mapper-asl-1.8.8.jar"/>
-	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hbase0.96.0/jackson-xc-1.8.8.jar"/>
-	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hbase0.96.0/jamon-runtime-2.3.1.jar"/>
-	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hbase0.96.0/jasper-compiler-5.5.23.jar"/>
-	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hbase0.96.0/jasper-runtime-5.5.23.jar"/>
-	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hbase0.96.0/javax.inject-1.jar"/>
-	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hbase0.96.0/javax.servlet-3.0.jar"/>
-	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hbase0.96.0/jaxb-api-2.2.2.jar"/>
-	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hbase0.96.0/jaxb-impl-2.2.3-1.jar"/>
-	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hbase0.96.0/jersey-client-1.8.jar"/>
-	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hbase0.96.0/jersey-grizzly2-1.8.jar"/>
-	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hbase0.96.0/jersey-guice-1.8.jar"/>
-	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hbase0.96.0/jersey-test-framework-core-1.8.jar"/>
-	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hbase0.96.0/jersey-test-framework-grizzly2-1.8.jar"/>
-	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hbase0.96.0/jets3t-0.6.1.jar"/>
-	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hbase0.96.0/jettison-1.3.1.jar"/>
-	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hbase0.96.0/jetty-6.1.26.jar"/>
-	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hbase0.96.0/jetty-sslengine-6.1.26.jar"/>
-	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hbase0.96.0/jetty-util-6.1.26.jar"/>
-	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hbase0.96.0/jruby-complete-1.6.8.jar"/>
-	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hbase0.96.0/jsch-0.1.42.jar"/>
-	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hbase0.96.0/jsp-2.1-6.1.14.jar"/>
-	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hbase0.96.0/jsp-api-2.1.jar"/>
-	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hbase0.96.0/jsp-api-2.1-6.1.14.jar"/>
-	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hbase0.96.0/jsr305-1.3.9.jar"/>
-	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hbase0.96.0/libthrift-0.9.0.jar"/>
-	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hbase0.96.0/log4j-1.2.17.jar"/>
-	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hbase0.96.0/management-api-3.0.0-b012.jar"/>
-	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hbase0.96.0/metrics-core-2.1.2.jar"/>
-	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hbase0.96.0/netty-3.6.6.Final.jar"/>
-	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hbase0.96.0/paranamer-2.3.jar"/>
-	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hbase0.96.0/protobuf-java-2.5.0.jar"/>
-	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hbase0.96.0/servlet-api-2.5.jar"/>
-	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hbase0.96.0/stax-api-1.0.1.jar"/>
-	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hbase0.96.0/xmlenc-0.52.jar"/>
-	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hbase0.96.0/xz-1.0.jar"/>
-	<classpathentry kind="lib" path="C:/Users/Albert/Dropbox/Documents/Cloud Triple Store Research/Apache Original Jar Libraries/hbase0.96.0/zookeeper-3.4.5.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>

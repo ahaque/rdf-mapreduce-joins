@@ -14,7 +14,6 @@ import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 
-
 public class ReduceSideJoin {
 
 	static String HBASE_TABLE_NAME = "rdf1";
@@ -64,7 +63,7 @@ public class ReduceSideJoin {
 		job.setReducerClass(ReduceSideJoin_Reducer.class);    // reducer class
 		job.setNumReduceTasks(1);    // at least one, adjust as required
 		
-		FileOutputFormat.setOutputPath(job, new Path("data/2014-13-02_experiment.txt"));
+		FileOutputFormat.setOutputPath(job, new Path("output/2014-03-12_output.txt"));
 
 		try {
 			System.exit(job.waitForCompletion(true) ? 0 : 1);
@@ -80,8 +79,13 @@ public class ReduceSideJoin {
 		private Text text = new Text();
 
 		public void map(ImmutableBytesWritable row, Result value, Context context) throws InterruptedException, IOException {
-			String val = new String(value.getValue("p".getBytes(), "bsbm_producer".getBytes()));
-			text.set(val);
+			byte[] raw_data = value.getValue("p".getBytes(), "bsbm_producer".getBytes());
+			if (raw_data == null) {
+				text.set("null");
+			} else {
+				String val = new String(raw_data);
+				text.set(val);
+			}
 			context.write(text, ONE);
 		}
 	}
