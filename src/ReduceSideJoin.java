@@ -12,37 +12,25 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hbase.HBaseConfiguration;
 import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.client.Scan;
-import org.apache.hadoop.hbase.filter.Filter;
-import org.apache.hadoop.hbase.filter.FilterList;
-import org.apache.hadoop.hbase.filter.SingleColumnValueFilter;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.mapreduce.TableMapReduceUtil;
 import org.apache.hadoop.hbase.mapreduce.TableMapper;
-import org.apache.hadoop.hbase.regionserver.BloomType;
-import org.apache.hadoop.hbase.regionserver.StoreFile;
 import org.apache.hadoop.hbase.util.Bytes;
-import org.apache.hadoop.hbase.filter.CompareFilter;
 import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
-import org.apache.hadoop.hbase.Cell;
-import org.apache.hadoop.hbase.CellUtil;
-
-import static com.google.common.base.Preconditions.checkNotNull;
 
 public class ReduceSideJoin {
 	
 	// Query Information
-	private static String ProductFeature1 = "hello";
-	private static String ProductFeature2 = "hello";
-	private static String ProductType = "hello";
-	private static double x = 0.0;
+	private static String ProductFeature1 = "bsbm-inst_ProductFeature3021";
+	private static String ProductFeature2 = "bsbm-inst_ProductFeature685";
+	private static String ProductType = "bsbm-inst_ProductType97";
+	private static int x = 0;
 
 	private static byte[] CF_AS_BYTES = "o".getBytes();
-	private byte[] fakeValue = Bytes.toBytes("DOESNOTEXIST");
-	private byte[] productName = Bytes.toBytes("product_name_here");
 	
 	public static void main(String[] args) throws ClassNotFoundException, IOException, InterruptedException {
 
@@ -89,6 +77,7 @@ public class ReduceSideJoin {
 		// Reducer settings
 		job.setReducerClass(ReduceSideJoin_Reducer.class);    // reducer class
 		job.setNumReduceTasks(1);    // at least one, adjust as required
+	
 		
 		FileOutputFormat.setOutputPath(job, new Path("output/2014-03-13"));
 
@@ -100,34 +89,11 @@ public class ReduceSideJoin {
 		return job;
 	}
 	
-//	private static Filter rowColBloomFilter() {
-//		// the base BD filter, either offers or reviews must have the product as column to be considered
-//		Filter filter = new BloomFilterSemiJoinFilter(COL_NAME_ROW,
-//		BSBMDataSetProcessor.COLUMN_FAMILY_AS_BYTES, new BloomFilterSemiJoinFilter.StaticRowBloomFilterLookupKeyBuilder(productName));
-//		return new FilterList(FilterList.Operator.MUST_PASS_ALL, filter, new FilterList(FilterList.Operator.MUST_PASS_ONE, reviewsFilter(), offersFilter()));
-//	}
-	
-	private Filter reviewsFilter() {
-		// select only the reviews that have product as a column name
-		SingleColumnValueFilter filter = new SingleColumnValueFilter(
-				CF_AS_BYTES, productName,
-				CompareFilter.CompareOp.NOT_EQUAL, fakeValue);
-		filter.setFilterIfMissing(true);
-		return filter;
-	}
-
-	private Filter offersFilter() {
-		// select only the rows that have product as a column value.
-		SingleColumnValueFilter filter = new SingleColumnValueFilter(
-				CF_AS_BYTES, productName,
-				CompareFilter.CompareOp.NOT_EQUAL, fakeValue);
-		filter.setFilterIfMissing(true);
-		return filter;
-	}
 	
 	public static class ReduceSideJoin_Mapper extends TableMapper<Text, IntWritable> {
 		
 		private Text text = new Text();
+		private final IntWritable ONE = new IntWritable(1);
 
 		public void map(ImmutableBytesWritable row, Result value, Context context) throws InterruptedException, IOException {
 			/* TP=Triple Pattern
@@ -146,45 +112,66 @@ public class ReduceSideJoin {
 			 */
 			// TP-2
 			byte[] item2 = value.getValue(CF_AS_BYTES, Bytes.toBytes(ProductType));
-			if ((item2 == null) || (item2 != Bytes.toBytes("rdf_type"))) {
-				return;
-			}
+			if (item2 == null) { return; }
+			String item2_str = new String(item2);
+			if (!item2_str.equals("rdf_type")) { return; }
+			
 			// TP-3
 			byte[] item3 = value.getValue(CF_AS_BYTES, Bytes.toBytes(ProductFeature1));
-			if ((item3 == null) || (item3 != Bytes.toBytes("bsbm_productFeature"))) {
-				return;
-			}
+			if (item3 == null) { return;}
+			String item3_str = new String(item3);
+			if (!item3_str.equals("bsbm_productFeature")) { return; }
+	
 			// TP-4
 			byte[] item4 = value.getValue(CF_AS_BYTES, Bytes.toBytes(ProductFeature2));
-			if ((item4 == null) || (item4 != Bytes.toBytes("bsbm_productFeature"))) {
-				return;
-			}
+			if (item4 == null) { return; }
+			String item4_str = new String(item4);
+		    if (!item4_str.equals("bsbm_productFeature")) { return; }
+			
 			// TP-6 - Since this is a literal, the predicate is the column name
 			byte[] item6 = value.getValue(CF_AS_BYTES, Bytes.toBytes("bsbm_productPropertyNumeric1"));
-			if ((item6 == null) {
-				return;
-			}
-			double number6 = ByteBuffer.wrap(item6).getDouble();
-			if (number6 <= x) {
-				return;
-			}
-			// Get the key/subject
-		    text.set(new String(value.getRow()));
-	    	context.write(text, ONE);
+			if (item6 == null) { return; }
+			int number6 = ByteBuffer.wrap(item6).getInt();
+			if (number6 <= x) { return; }
+			
+			text.set(new String(value.getRow()));
+						
+			// Tuple is the project part of the SPARQL query
+//			Text[] tuple = new Text[2];
+//		    			
+//			List<Cell> allKeyValues = value.listCells();
+//			for (Cell kv : allKeyValues) {
+//				if (new String(kv.getValueArray()).equals("rdf_type")) {
+//					// Even numbers are predicates, odd numbers are objects
+//					tuple[0] = new Text(kv.getValueArray());
+//					tuple[1] = new Text(kv.getQualifierArray());
+//					break;
+//				}
+//			}
+//			// Mapper Output Key: Row key/subject
+//		    text.set(new String(value.getRow()));		   
+//		    // Mapper Output Value: Predicate and Object
+//	    	context.write(text, new TextArrayWritable(tuple));
+			context.write(text, ONE);
 		}
 	}
 	
 	public static class ReduceSideJoin_Reducer extends Reducer<Text, IntWritable, Text, IntWritable>  {
 		
 		public void reduce(Text key, Iterable<IntWritable> values, Context context) throws IOException, InterruptedException {
+//			StringBuilder build = new StringBuilder();
+//			for (TextArrayWritable array : values) {
+//				Text[] tuple = (Text[]) array.toArray();
+//		        build.append(tuple[0] + " " + tuple[1]);
+//		      }
+//		      context.write(key, new Text(build.toString()));
 			int i = 0;
 			for (IntWritable val : values) {
-				i += val.get();
+			i += val.get();
 			}
 			context.write(key, new IntWritable(i));
 		}
 		
 	}
-	    
 		    
 }
