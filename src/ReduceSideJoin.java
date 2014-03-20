@@ -10,6 +10,7 @@ import java.nio.ByteBuffer;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hbase.HBaseConfiguration;
+import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
@@ -71,7 +72,7 @@ public class ReduceSideJoin {
 				scan,             // Scan instance to control CF and attribute selection
 				ReduceSideJoin_Mapper.class,   // mapper
 				Text.class,         // mapper output key
-				ImmutableBytesWritable.class,  // mapper output value
+				KeyValueArrayWritable.class,  // mapper output value
 				job);
 
 		// Reducer settings
@@ -79,7 +80,7 @@ public class ReduceSideJoin {
 		job.setNumReduceTasks(1);    // at least one, adjust as required
 	
 		
-		FileOutputFormat.setOutputPath(job, new Path("output/2014-03-13"));
+		FileOutputFormat.setOutputPath(job, new Path("output/2014-03-20"));
 
 		try {
 			System.exit(job.waitForCompletion(true) ? 0 : 1);
@@ -163,20 +164,20 @@ public class ReduceSideJoin {
 		}
 	}
 	
-	public static class ReduceSideJoin_Reducer extends Reducer<Text, ImmutableBytesWritable, Text, IntWritable>  {
+	public static class ReduceSideJoin_Reducer extends Reducer<Text, KeyValueArrayWritable, Text, Text>  {
 		
-		public void reduce(Text key, Iterable<ImmutableBytesWritable> values, Context context) throws IOException, InterruptedException {
-//			StringBuilder build = new StringBuilder();
-//			for (TextArrayWritable array : values) {
-//				Text[] tuple = (Text[]) array.toArray();
-//		        build.append(tuple[0] + " " + tuple[1]);
-//		      }
-//		      context.write(key, new Text(build.toString()));
-			int i = 0;
-			for (ImmutableBytesWritable val : values) {
-			i += 1;
-			}
-			context.write(key, new IntWritable(i));
+		public void reduce(Text key, Iterable<KeyValueArrayWritable> values, Context context) throws IOException, InterruptedException {
+		      StringBuilder builder = new StringBuilder();
+		      for (KeyValueArrayWritable array : values) {
+		        for (KeyValue kv : (KeyValue[]) array.toArray()) {
+		          builder.append(new String(kv.getBuffer(), kv.getValueOffset(), kv.getValueLength()))
+		            .append(" : ")
+		            .append(new String(kv.getBuffer(), kv.getQualifierOffset(), kv.getQualifierLength()))
+		            .append("\n");
+		        }
+		      }
+		      context.write(key, new Text(builder.toString()));
+			context.write(key, new Text(builder.toString()));
 		}
 		
 	}
