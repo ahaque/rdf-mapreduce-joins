@@ -71,7 +71,7 @@ public class ReduceSideJoin {
 				scan,             // Scan instance to control CF and attribute selection
 				ReduceSideJoin_Mapper.class,   // mapper
 				Text.class,         // mapper output key
-				IntWritable.class,  // mapper output value
+				ImmutableBytesWritable.class,  // mapper output value
 				job);
 
 		// Reducer settings
@@ -90,7 +90,7 @@ public class ReduceSideJoin {
 	}
 	
 	
-	public static class ReduceSideJoin_Mapper extends TableMapper<Text, IntWritable> {
+	public static class ReduceSideJoin_Mapper extends TableMapper<Text, ImmutableBytesWritable> {
 		
 		private Text text = new Text();
 		private final IntWritable ONE = new IntWritable(1);
@@ -111,35 +111,35 @@ public class ReduceSideJoin {
 				LIMIT 10
 			 */
 			// TP-2
-			boolean skip = false;
-			byte[] item2 = value.getValue(CF_AS_BYTES, Bytes.toBytes(ProductType));
-			if (item2 == null) { skip = true; }
-			String item2_str = new String(item2);
-			if (!item2_str.equals("rdf_type")) { skip = true; }
-			
-			// TP-3
-			if (skip == false) {
-			byte[] item3 = value.getValue(CF_AS_BYTES, Bytes.toBytes(ProductFeature1));
-			if (item3 == null) { skip = true;}
-			String item3_str = new String(item3);
-			if (!item3_str.equals("bsbm_productFeature")) { skip = true; }
-			}
-	
-			// TP-4
-			if (skip == false) {
-			byte[] item4 = value.getValue(CF_AS_BYTES, Bytes.toBytes(ProductFeature2));
-			if (item4 == null) { skip = true; }
-			String item4_str = new String(item4);
-		    if (!item4_str.equals("bsbm_productFeature")) { skip = true; }
-			}
-			
-			// TP-6 - Since this is a literal, the predicate is the column name
-		    if (skip == false) {
-			byte[] item6 = value.getValue(CF_AS_BYTES, Bytes.toBytes("bsbm_productPropertyNumeric1"));
-			if (item6 == null) { skip = true; }
-			int number6 = ByteBuffer.wrap(item6).getInt();
-			if (number6 <= x) { skip = true; }
-		    }
+//			boolean skip = false;
+//			byte[] item2 = value.getValue(CF_AS_BYTES, Bytes.toBytes(ProductType));
+//			if (item2 == null) { skip = true; }
+//			String item2_str = new String(item2);
+//			if (!item2_str.equals("rdf_type")) { skip = true; }
+//			
+//			// TP-3
+//			if (skip == false) {
+//			byte[] item3 = value.getValue(CF_AS_BYTES, Bytes.toBytes(ProductFeature1));
+//			if (item3 == null) { skip = true;}
+//			String item3_str = new String(item3);
+//			if (!item3_str.equals("bsbm_productFeature")) { skip = true; }
+//			}
+//	
+//			// TP-4
+//			if (skip == false) {
+//			byte[] item4 = value.getValue(CF_AS_BYTES, Bytes.toBytes(ProductFeature2));
+//			if (item4 == null) { skip = true; }
+//			String item4_str = new String(item4);
+//		    if (!item4_str.equals("bsbm_productFeature")) { skip = true; }
+//			}
+//			
+//			// TP-6 - Since this is a literal, the predicate is the column name
+//		    if (skip == false) {
+//			byte[] item6 = value.getValue(CF_AS_BYTES, Bytes.toBytes("bsbm_productPropertyNumeric1"));
+//			if (item6 == null) { skip = true; }
+//			int number6 = ByteBuffer.wrap(item6).getInt();
+//			if (number6 <= x) { skip = true; }
+//		    }
 			
 			text.set(new String(value.getRow()));
 						
@@ -159,13 +159,13 @@ public class ReduceSideJoin {
 //		    text.set(new String(value.getRow()));		   
 //		    // Mapper Output Value: Predicate and Object
 //	    	context.write(text, new TextArrayWritable(tuple));
-			context.write(text, ONE);
+			context.write(text, row);
 		}
 	}
 	
-	public static class ReduceSideJoin_Reducer extends Reducer<Text, IntWritable, Text, IntWritable>  {
+	public static class ReduceSideJoin_Reducer extends Reducer<Text, ImmutableBytesWritable, Text, IntWritable>  {
 		
-		public void reduce(Text key, Iterable<IntWritable> values, Context context) throws IOException, InterruptedException {
+		public void reduce(Text key, Iterable<ImmutableBytesWritable> values, Context context) throws IOException, InterruptedException {
 //			StringBuilder build = new StringBuilder();
 //			for (TextArrayWritable array : values) {
 //				Text[] tuple = (Text[]) array.toArray();
@@ -173,8 +173,8 @@ public class ReduceSideJoin {
 //		      }
 //		      context.write(key, new Text(build.toString()));
 			int i = 0;
-			for (IntWritable val : values) {
-			i += val.get();
+			for (ImmutableBytesWritable val : values) {
+			i += 1;
 			}
 			context.write(key, new IntWritable(i));
 		}
