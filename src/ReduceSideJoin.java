@@ -5,6 +5,7 @@
  */
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.List;
 
@@ -27,9 +28,9 @@ import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 public class ReduceSideJoin {
 	
 	// Begin Query Information
-	private static String ProductFeature1 = "bsbm-inst_ProductFeature105";
-	private static String ProductFeature2 = "bsbm-inst_ProductFeature108";
-	private static String ProductType = "bsbm-inst_ProductType151";
+	private static String ProductFeature1 = "bsbm-inst_ProductFeature8022";
+	private static String ProductFeature2 = "bsbm-inst_ProductFeature52";
+	private static String ProductType = "bsbm-inst_ProductType251";
 	private static int x = 0;
 	// End Query Information
 	
@@ -114,37 +115,27 @@ public class ReduceSideJoin {
 			// TP-2
 			boolean skip = false;
 			byte[] item2 = value.getValue(CF_AS_BYTES, Bytes.toBytes(ProductType));
-			if (item2 == null) {
-				return;
-			}
+			if (item2 == null) { return; }
 			String item2_str = new String(item2);
-			if (!item2_str.equals("rdf_type")) {
-				return;
-			}
+			if (!item2_str.equals("rdf_type")) { return; }
 			
-//			// TP-3
-//			if (skip == false) {
-//			byte[] item3 = value.getValue(CF_AS_BYTES, Bytes.toBytes(ProductFeature1));
-//			//if (item3 == null) { skip = true; return;}
-//			String item3_str = new String(item3);
-//			if (!item3_str.equals("bsbm_productFeature")) { skip = true; return; }
-//			}
-//	
-//			// TP-4
-//			if (skip == false) {
-//			byte[] item4 = value.getValue(CF_AS_BYTES, Bytes.toBytes(ProductFeature2));
-//			if (item4 == null) { skip = true; }
-//			String item4_str = new String(item4);
-//		    if (!item4_str.equals("bsbm_productFeature")) { skip = true; }
-//			}
-//			
-//			// TP-6 - Since this is a literal, the predicate is the column name
-//		    if (skip == false) {
-//			byte[] item6 = value.getValue(CF_AS_BYTES, Bytes.toBytes("bsbm_productPropertyNumeric1"));
-//			if (item6 == null) { skip = true; }
-//			int number6 = ByteBuffer.wrap(item6).getInt();
-//			if (number6 <= x) { skip = true; }
-//		    }
+			// TP-3
+			byte[] item3 = value.getValue(CF_AS_BYTES, Bytes.toBytes(ProductFeature1));
+			if (item3 == null) { return; }
+			String item3_str = new String(item3);
+			if (!item3_str.equals("bsbm_productFeature")) { return; }
+	
+			// TP-4
+			byte[] item4 = value.getValue(CF_AS_BYTES, Bytes.toBytes(ProductFeature2));
+			if (item4 == null) { return; }
+			String item4_str = new String(item4);
+		    if (!item4_str.equals("bsbm_productFeature")) { return; }
+
+			// TP-6 - Since this is a literal, the predicate is the column name
+			byte[] item6 = value.getValue(CF_AS_BYTES, Bytes.toBytes("bsbm_productPropertyNumeric1"));
+			if (item6 == null) { return; }
+			int number6 = ByteBuffer.wrap(item6).getInt();
+			if (number6 <= x) { return; }
 			
 			text.set(new String(value.getRow()));
 						
