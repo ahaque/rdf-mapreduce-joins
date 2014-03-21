@@ -5,6 +5,9 @@
  */
 
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.List;
+
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hbase.HBaseConfiguration;
@@ -14,6 +17,7 @@ import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.mapreduce.TableMapReduceUtil;
 import org.apache.hadoop.hbase.mapreduce.TableMapper;
+import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
@@ -22,12 +26,13 @@ import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 
 public class ReduceSideJoin {
 	
-	// Query Information
-	private static String ProductFeature1 = "bsbm-inst_ProductFeature3021";
-	private static String ProductFeature2 = "bsbm-inst_ProductFeature685";
-	private static String ProductType = "bsbm-inst_ProductType97";
+	// Begin Query Information
+	private static String ProductFeature1 = "bsbm-inst_ProductFeature105";
+	private static String ProductFeature2 = "bsbm-inst_ProductFeature108";
+	private static String ProductType = "bsbm-inst_ProductType151";
 	private static int x = 0;
-
+	// End Query Information
+	
 	private static byte[] CF_AS_BYTES = "o".getBytes();
 	
 	public static void main(String[] args) throws ClassNotFoundException, IOException, InterruptedException {
@@ -42,7 +47,6 @@ public class ReduceSideJoin {
 		startJob(args);
 	}
 	
-	@SuppressWarnings("deprecation")
 	public static Job startJob(String[] args) throws IOException {
 		
 		// args[0] = hbase table name
@@ -69,7 +73,7 @@ public class ReduceSideJoin {
 				scan,             // Scan instance to control CF and attribute selection
 				ReduceSideJoin_Mapper.class,   // mapper
 				Text.class,         // mapper output key
-				KeyValueArrayWritable.class,  // mapper output value
+				IntWritable.class,  // mapper output value
 				job);
 
 		// Reducer settings
@@ -77,7 +81,7 @@ public class ReduceSideJoin {
 		job.setNumReduceTasks(1);    // at least one, adjust as required
 	
 		
-		FileOutputFormat.setOutputPath(job, new Path("output/2014-03-20"));
+		FileOutputFormat.setOutputPath(job, new Path("output/2014-03-21"));
 
 		try {
 			System.exit(job.waitForCompletion(true) ? 0 : 1);
@@ -88,10 +92,9 @@ public class ReduceSideJoin {
 	}
 	
 	
-	public static class ReduceSideJoin_Mapper extends TableMapper<Text, ImmutableBytesWritable> {
+	public static class ReduceSideJoin_Mapper extends TableMapper<Text, IntWritable> {
 		
 		private Text text = new Text();
-		private final IntWritable ONE = new IntWritable(1);
 
 		public void map(ImmutableBytesWritable row, Result value, Context context) throws InterruptedException, IOException {
 			/* TP=Triple Pattern
@@ -109,18 +112,22 @@ public class ReduceSideJoin {
 				LIMIT 10
 			 */
 			// TP-2
-//			boolean skip = false;
-//			byte[] item2 = value.getValue(CF_AS_BYTES, Bytes.toBytes(ProductType));
-//			if (item2 == null) { skip = true; }
-//			String item2_str = new String(item2);
-//			if (!item2_str.equals("rdf_type")) { skip = true; }
-//			
+			boolean skip = false;
+			byte[] item2 = value.getValue(CF_AS_BYTES, Bytes.toBytes(ProductType));
+			if (item2 == null) {
+				return;
+			}
+			String item2_str = new String(item2);
+			if (!item2_str.equals("rdf_type")) {
+				return;
+			}
+			
 //			// TP-3
 //			if (skip == false) {
 //			byte[] item3 = value.getValue(CF_AS_BYTES, Bytes.toBytes(ProductFeature1));
-//			if (item3 == null) { skip = true;}
+//			//if (item3 == null) { skip = true; return;}
 //			String item3_str = new String(item3);
-//			if (!item3_str.equals("bsbm_productFeature")) { skip = true; }
+//			if (!item3_str.equals("bsbm_productFeature")) { skip = true; return; }
 //			}
 //	
 //			// TP-4
@@ -142,39 +149,43 @@ public class ReduceSideJoin {
 			text.set(new String(value.getRow()));
 						
 			// Tuple is the project part of the SPARQL query
-//			Text[] tuple = new Text[2];
-//		    			
-//			List<Cell> allKeyValues = value.listCells();
-//			for (Cell kv : allKeyValues) {
-//				if (new String(kv.getValueArray()).equals("rdf_type")) {
+		    			
+			List<KeyValue> allResults = value.list();
+			int sum = allResults.size();
+			
+//			for (KeyValue kv : allKeyValues) {
+//				if (Arrays.equals(kv.getValue(), Bytes.toBytes("rdf_type")) {
 //					// Even numbers are predicates, odd numbers are objects
-//					tuple[0] = new Text(kv.getValueArray());
-//					tuple[1] = new Text(kv.getQualifierArray());
+//					tuple[0] = kv.getValue();
+//					tuple[1] = kv.getQualifier();
 //					break;
 //				}
 //			}
-//			// Mapper Output Key: Row key/subject
-//		    text.set(new String(value.getRow()));		   
-//		    // Mapper Output Value: Predicate and Object
-//	    	context.write(text, new TextArrayWritable(tuple));
-			context.write(text, row);
+			// Mapper Output Key: Row key/subject
+		    // Mapper Output Value: Predicate and Object
+	    	//context.write(text, new KeyValueArrayWritable(tuple));
+			context.write(text, new IntWritable(sum));
 		}
 	}
 	
-	public static class ReduceSideJoin_Reducer extends Reducer<Text, KeyValueArrayWritable, Text, Text>  {
+	public static class ReduceSideJoin_Reducer extends Reducer<Text, IntWritable, Text, IntWritable>  {
 		
-		public void reduce(Text key, Iterable<KeyValueArrayWritable> values, Context context) throws IOException, InterruptedException {
-		      StringBuilder builder = new StringBuilder();
-		      for (KeyValueArrayWritable array : values) {
-		        for (KeyValue kv : (KeyValue[]) array.toArray()) {
-		          builder.append(new String(kv.getBuffer(), kv.getValueOffset(), kv.getValueLength()))
-		            .append(" : ")
-		            .append(new String(kv.getBuffer(), kv.getQualifierOffset(), kv.getQualifierLength()))
-		            .append("\n");
-		        }
-		      }
-		      context.write(key, new Text(builder.toString()));
-			context.write(key, new Text(builder.toString()));
+		public void reduce(Text key, Iterable<IntWritable> values, Context context) throws IOException, InterruptedException {
+//		      StringBuilder builder = new StringBuilder();
+//		      for (KeyValueArrayWritable array : values) {
+//		        for (KeyValue kv : (KeyValue[]) array.toArray()) {
+//		          builder.append(new String(kv.getBuffer(), kv.getValueOffset(), kv.getValueLength()))
+//		            .append(" : ")
+//		            .append(new String(kv.getBuffer(), kv.getQualifierOffset(), kv.getQualifierLength()))
+//		            .append("\n");
+//		        }
+//		      }
+//			context.write(key, new Text(builder.toString()));
+			int i = 0;
+			for (IntWritable val : values) {
+			i += val.get();
+			}
+			context.write(key, new IntWritable(i));
 		}
 		
 	}
