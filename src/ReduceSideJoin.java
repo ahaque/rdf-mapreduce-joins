@@ -74,7 +74,7 @@ public class ReduceSideJoin {
 				scan,             // Scan instance to control CF and attribute selection
 				ReduceSideJoin_Mapper.class,   // mapper
 				Text.class,         // mapper output key
-				IntWritable.class,  // mapper output value
+				KeyValueArrayWritable.class,  // mapper output value
 				job);
 
 		// Reducer settings
@@ -93,7 +93,7 @@ public class ReduceSideJoin {
 	}
 	
 	
-	public static class ReduceSideJoin_Mapper extends TableMapper<Text, IntWritable> {
+	public static class ReduceSideJoin_Mapper extends TableMapper<Text, KeyValueArrayWritable> {
 		
 		private Text text = new Text();
 
@@ -113,7 +113,6 @@ public class ReduceSideJoin {
 				LIMIT 10
 			 */
 			// TP-2
-			boolean skip = false;
 			byte[] item2 = value.getValue(CF_AS_BYTES, Bytes.toBytes(ProductType));
 			if (item2 == null) { return; }
 			String item2_str = new String(item2);
@@ -123,60 +122,58 @@ public class ReduceSideJoin {
 			byte[] item3 = value.getValue(CF_AS_BYTES, Bytes.toBytes(ProductFeature1));
 			if (item3 == null) { return; }
 			String item3_str = new String(item3);
-			if (!item3_str.equals("bsbm_productFeature")) { return; }
+			if (!item3_str.equals("bsbm-voc_productFeature")) { return; }
 	
 			// TP-4
 			byte[] item4 = value.getValue(CF_AS_BYTES, Bytes.toBytes(ProductFeature2));
 			if (item4 == null) { return; }
 			String item4_str = new String(item4);
-		    if (!item4_str.equals("bsbm_productFeature")) { return; }
+		    if (!item4_str.equals("bsbm-voc_productFeature")) { return; }
 
 			// TP-6 - Since this is a literal, the predicate is the column name
-			byte[] item6 = value.getValue(CF_AS_BYTES, Bytes.toBytes("bsbm_productPropertyNumeric1"));
+			byte[] item6 = value.getValue(CF_AS_BYTES, Bytes.toBytes("bsbm-voc_productPropertyNumeric1"));
 			if (item6 == null) { return; }
 			int number6 = ByteBuffer.wrap(item6).getInt();
 			if (number6 <= x) { return; }
 			
-			text.set(new String(value.getRow()));
-						
 			// Tuple is the project part of the SPARQL query
-		    			
-			List<KeyValue> allResults = value.list();
-			int sum = allResults.size();
+			text.set(new String(value.getRow()));
+			List<KeyValue> entireRowAsList = value.list();
+			KeyValue[] entireRow = new KeyValue[entireRowAsList.size()];
 			
-//			for (KeyValue kv : allKeyValues) {
-//				if (Arrays.equals(kv.getValue(), Bytes.toBytes("rdf_type")) {
-//					// Even numbers are predicates, odd numbers are objects
-//					tuple[0] = kv.getValue();
-//					tuple[1] = kv.getQualifier();
-//					break;
-//				}
-//			}
-			// Mapper Output Key: Row key/subject
-		    // Mapper Output Value: Predicate and Object
-	    	//context.write(text, new KeyValueArrayWritable(tuple));
-			context.write(text, new IntWritable(sum));
+			for (int i = 0; i < entireRowAsList.size(); i++) {
+				entireRow[i] = entireRowAsList.get(i);
+			}
+			
+//			 Mapper Output Key: Row key/subject
+//		     Mapper Output Value: all cells for the row/subject
+	    	context.write(text, new KeyValueArrayWritable(entireRow));
+//			context.write(text, new IntWritable(sum));
 		}
 	}
 	
-	public static class ReduceSideJoin_Reducer extends Reducer<Text, IntWritable, Text, IntWritable>  {
+	public static class ReduceSideJoin_Reducer extends Reducer<Text, KeyValueArrayWritable, Text, Text>  {
 		
-		public void reduce(Text key, Iterable<IntWritable> values, Context context) throws IOException, InterruptedException {
-//		      StringBuilder builder = new StringBuilder();
-//		      for (KeyValueArrayWritable array : values) {
-//		        for (KeyValue kv : (KeyValue[]) array.toArray()) {
-//		          builder.append(new String(kv.getBuffer(), kv.getValueOffset(), kv.getValueLength()))
+		public void reduce(Text key, Iterable<KeyValueArrayWritable> values, Context context) throws IOException, InterruptedException {
+		      StringBuilder builder = new StringBuilder();
+		      for (KeyValueArrayWritable array : values) {
+		        for (KeyValue kv : (KeyValue[]) array.toArray()) {
+		        	builder.append(""+
+		        			  new String(kv.getBuffer(), kv.getKeyOffset(), kv.getKeyLength()) + " "
+		        			+ new String(kv.getBuffer(), kv.getValueOffset(), kv.getValueLength()) + " "
+		        			+ new String(kv.getBuffer(), kv.getQualifierOffset(), kv.getQualifierLength()) + "\n");
+//		          builder.append()
 //		            .append(" : ")
 //		            .append(new String(kv.getBuffer(), kv.getQualifierOffset(), kv.getQualifierLength()))
 //		            .append("\n");
-//		        }
-//		      }
-//			context.write(key, new Text(builder.toString()));
-			int i = 0;
-			for (IntWritable val : values) {
-			i += val.get();
-			}
-			context.write(key, new IntWritable(i));
+		        }
+		      }
+			context.write(key, new Text(builder.toString()));
+//			int i = 0;
+//			for (IntWritable val : values) {
+//			i += val.get();
+//			}
+//			context.write(key, new IntWritable(i));
 		}
 		
 	}
