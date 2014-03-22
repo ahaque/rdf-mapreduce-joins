@@ -159,21 +159,12 @@ public class ReduceSideJoin {
 		      for (KeyValueArrayWritable array : values) {
 		        for (KeyValue kv : (KeyValue[]) array.toArray()) {
 		        	builder.append(""+
-		        			  new String(kv.getBuffer(), kv.getKeyOffset(), kv.getKeyLength()) + " "
-		        			+ new String(kv.getBuffer(), kv.getValueOffset(), kv.getValueLength()) + " "
-		        			+ new String(kv.getBuffer(), kv.getQualifierOffset(), kv.getQualifierLength()) + "\n");
-//		          builder.append()
-//		            .append(" : ")
-//		            .append(new String(kv.getBuffer(), kv.getQualifierOffset(), kv.getQualifierLength()))
-//		            .append("\n");
+		        		  new String(kv.getBuffer(), kv.getKeyOffset(), kv.getKeyLength()) + " "
+		        		+ new String(kv.getBuffer(), kv.getValueOffset(), kv.getValueLength()) + " "
+		        		+ new String(kv.getBuffer(), kv.getQualifierOffset(), kv.getQualifierLength()) + "\n");
 		        }
 		      }
 			context.write(key, new Text(builder.toString()));
-//			int i = 0;
-//			for (IntWritable val : values) {
-//			i += val.get();
-//			}
-//			context.write(key, new IntWritable(i));
 		}
 		
 	}
