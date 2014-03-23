@@ -4,10 +4,10 @@
  * @author Albert Haque
  */
 
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.io.ObjectInputStream;
 import java.nio.ByteBuffer;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
 import java.util.List;
 
 import org.apache.hadoop.conf.Configuration;
@@ -24,17 +24,17 @@ import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
-import org.joda.time.DateTime;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
 
-public class ReduceSideJoin {
+public class ReduceSideJoinBSBMQ1 {
 	
 	// Begin Query Information
 	private static String ProductFeature1 = "bsbm-inst_ProductFeature115";
-	private static String ProductFeature2 = "bsbm-inst_ProductFeature1621";
+	private static String ProductFeature2 = "bsbm-inst_ProductFeature115";
 	private static String ProductType = "bsbm-inst_ProductType151";
 	private static int x = 0;
+	private static String[] ProjectedVariables = {"rdfs_label"};
 	// End Query Information
 	
 	private static byte[] CF_AS_BYTES = "o".getBytes();
@@ -66,8 +66,8 @@ public class ReduceSideJoin {
 	    //scan.setFilter(rowColBloomFilter());
 		
 		Job job = new Job(hConf);
-		job.setJobName("Reduce Side Join");
-		job.setJarByClass(ReduceSideJoin.class);
+		job.setJobName("BSBM-Q1-ReduceSideJoin");
+		job.setJarByClass(ReduceSideJoinBSBMQ1.class);
 		// Change caching to speed up the scan
 		scan.setCaching(500);        
 		scan.setCacheBlocks(false);
@@ -85,7 +85,7 @@ public class ReduceSideJoin {
 		job.setReducerClass(ReduceSideJoin_Reducer.class);    // reducer class
 		job.setNumReduceTasks(1);    // at least one, adjust as required
 	
-		FileOutputFormat.setOutputPath(job, new Path("output/2014-03-22"));
+		FileOutputFormat.setOutputPath(job, new Path("output/BSBMQ1"));
 
 		try {
 			System.exit(job.waitForCompletion(true) ? 0 : 1);
@@ -145,12 +145,18 @@ public class ReduceSideJoin {
 			
 			// HBase row for that subject (Mapper Output: Value)
 			List<KeyValue> entireRowAsList = value.list();
-			KeyValue[] entireRow = new KeyValue[entireRowAsList.size()];
-			// TODO: Reduce data sent across network by writing only columns that we know will be used
-			for (int i = 0; i < entireRowAsList.size(); i++) {
-				entireRow[i] = entireRowAsList.get(i);
-			}
+			KeyValue[] entireRow = new KeyValue[ProjectedVariables.length];
 			
+			int index = 0;
+			for (int i = 0; i < entireRowAsList.size(); i++) {
+				// Reduce data sent across network by writing only columns that we know will be used
+				for (String project : ProjectedVariables) {
+					if (new String(entireRowAsList.get(i).getQualifier()).equals(project)) {
+						entireRow[index] = entireRowAsList.get(i);
+						index++;
+					}
+				}
+			}
 	    	context.write(text, new KeyValueArrayWritable(entireRow));
 		}
 	}
@@ -163,7 +169,7 @@ public class ReduceSideJoin {
 		public void reduce(Text key, Iterable<KeyValueArrayWritable> values, Context context) throws IOException, InterruptedException {
 		      StringBuilder builder = new StringBuilder();
 		      for (KeyValueArrayWritable array : values) {
-		    	  
+		    	builder.append("\n");
 		        for (KeyValue kv : (KeyValue[]) array.toArray()) {
 		        	String[] triple = null;
 		        	try {
@@ -171,7 +177,7 @@ public class ReduceSideJoin {
 					} catch (ClassNotFoundException e) {
 						e.printStackTrace();
 					}
-		        	builder.append(triple[0] + " " + triple[1] + " " + triple[2] +"\n");
+		        	builder.append("\t\t" + triple[1] + "\t" + triple[2] +"\n");
 		        }
 		      }
 			context.write(key, new Text(builder.toString()));
@@ -196,7 +202,7 @@ public class ReduceSideJoin {
         	String columnName = new String(kv.getBuffer(), kv.getQualifierOffset(), kv.getQualifierLength());
         	// integer literals
         	if (columnName.contains("bsbm-voc_productPropertyNumeric") ||
-        			columnName.equals("bsbm-voc_deliveryDays")) {
+        		columnName.equals("bsbm-voc_deliveryDays")) {
         		byte[] rawBytes = kv.getValue();
     			int number = ByteBuffer.wrap(rawBytes).getInt();
     			
@@ -224,9 +230,8 @@ public class ReduceSideJoin {
         	}
         	// Date literal
         	else if (columnName.equals("dc_date")) {
-        		ObjectInputStream ois = new ObjectInputStream(new ByteArrayInputStream(kv.getValue()));
-        		long longDate = (long) ois.readObject();
-        		ois.close();
+        		byte[] rawBytes = kv.getValue();
+        		long longDate = ByteBuffer.wrap(rawBytes).getLong();
         		// Use SQL date since we don't need HH:mm:ss
         		java.sql.Date date = new java.sql.Date(longDate);
         		result[0] = new String(kv.getBuffer(), kv.getKeyOffset(), kv.getKeyLength());
@@ -237,9 +242,8 @@ public class ReduceSideJoin {
         	// DateTime
         	else if (columnName.equals("bsbm-voc_validTo") ||
         			 columnName.equals("bsbm-voc_validFrom")) { 
-        		ObjectInputStream ois = new ObjectInputStream(new ByteArrayInputStream(kv.getValue()));
-        		long longDate = (long) ois.readObject();
-        		ois.close();
+        		byte[] rawBytes = kv.getValue();
+        		long longDate = ByteBuffer.wrap(rawBytes).getLong();
         		// Use java date since we need full datetime
         		org.joda.time.DateTime d = new org.joda.time.DateTime(longDate);
         		result[0] = new String(kv.getBuffer(), kv.getKeyOffset(), kv.getKeyLength());
@@ -247,6 +251,14 @@ public class ReduceSideJoin {
     			result[2] = format1.print(d) + "T" + format2.print(d);
     			return result;
         	}
+        	else if (columnName.equals("rdfs_label") ||
+        			 columnName.equals("rdfs_comment")) { 
+        		result[0] = new String(kv.getBuffer(), kv.getKeyOffset(), kv.getKeyLength());
+        		result[1] = new String(kv.getBuffer(), kv.getQualifierOffset(), kv.getQualifierLength());
+    			result[2] = new String(kv.getBuffer(), kv.getValueOffset(), kv.getValueLength());
+	   			return result;
+        	}
+        	
         	// Object is not a literal
     		result[0] = new String(kv.getBuffer(), kv.getKeyOffset(), kv.getKeyLength());
 			result[1] = new String(kv.getBuffer(), kv.getValueOffset(), kv.getValueLength());
