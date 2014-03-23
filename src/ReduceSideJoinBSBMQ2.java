@@ -1,5 +1,5 @@
 /**
- * Reduce Side Join BSBM Q1
+ * Reduce Side Join BSBM Q2
  * @date March 2013
  * @author Albert Haque
  */
@@ -25,7 +25,7 @@ import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
 
-public class ReduceSideJoinBSBMQ1 {
+public class ReduceSideJoinBSBMQ2 {
 	
 	// Begin Query Information
 	private static String ProductFeature1 = "bsbm-inst_ProductFeature115";
