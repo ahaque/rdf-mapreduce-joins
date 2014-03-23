@@ -46,7 +46,7 @@ public class ReduceSideJoinBSBMQ1 {
 
 		if (args == null || args.length != 2) {
 			System.out.println("\n  You entered " + args.length + " arguments.");
-			System.out.println("\n  " + USAGE_MSG);
+			System.out.println("  " + USAGE_MSG);
 			System.exit(0);
 		}
 		startJob(args);
@@ -177,7 +177,7 @@ public class ReduceSideJoinBSBMQ1 {
 					} catch (ClassNotFoundException e) {
 						e.printStackTrace();
 					}
-		        	builder.append("\t\t" + triple[1] + "\t" + triple[2] +"\n");
+		        	builder.append("\t" + triple[1] + "\t" + triple[2] +"\n");
 		        }
 		      }
 			context.write(key, new Text(builder.toString()));
