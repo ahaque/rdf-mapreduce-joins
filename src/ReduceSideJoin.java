@@ -158,6 +158,9 @@ public class ReduceSideJoin {
 	
 	public static class ReduceSideJoin_Reducer extends Reducer<Text, KeyValueArrayWritable, Text, Text>  {
 		
+		private static DateTimeFormatter format1 = DateTimeFormat.forPattern("yyyy-MM-dd");
+		private static DateTimeFormatter format2 = DateTimeFormat.forPattern("HH-mm-ss");
+		
 		public void reduce(Text key, Iterable<KeyValueArrayWritable> values, Context context) throws IOException, InterruptedException {
 		      StringBuilder builder = new StringBuilder();
 		      for (KeyValueArrayWritable array : values) {
@@ -186,8 +189,6 @@ public class ReduceSideJoin {
 		public String keyValueToTripleString(KeyValue kv) throws IOException, ClassNotFoundException {
 			StringBuilder builder = new StringBuilder();
 			String result;
-			DateTimeFormatter format1 = DateTimeFormat.forPattern("yyyy-MM-dd");
-			DateTimeFormatter format2 = DateTimeFormat.forPattern("HH-mm-ss");
 			/* If a literal then we need to:
         	 * 1. Use the column as the predicate
         	 * 2. Convert byte arrays to double/string/data format
