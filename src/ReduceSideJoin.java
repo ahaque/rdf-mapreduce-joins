@@ -205,7 +205,7 @@ public class ReduceSideJoin {
     			return result;
         	}
         	// String literals
-        	else if (columnName.contains("bsbm-voc_productPropertyTextual") || columnName.equals("dc_date")) {
+        	else if (columnName.contains("bsbm-voc_productPropertyTextual")) {
         		result =  new String(kv.getBuffer(), kv.getKeyOffset(), kv.getKeyLength()) + "\t"
     	        		+ new String(kv.getBuffer(), kv.getQualifierOffset(), kv.getQualifierLength()) + "\t"
     	        		+ new String(kv.getValue()) + "\n";
