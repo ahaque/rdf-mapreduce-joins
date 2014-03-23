@@ -8,7 +8,6 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.nio.ByteBuffer;
-import java.sql.Date;
 import java.util.List;
 
 import org.apache.hadoop.conf.Configuration;
@@ -32,9 +31,9 @@ import org.joda.time.format.DateTimeFormatter;
 public class ReduceSideJoin {
 	
 	// Begin Query Information
-	private static String ProductFeature1 = "bsbm-inst_ProductFeature1266";
-	private static String ProductFeature2 = "bsbm-inst_ProductFeature1283";
-	private static String ProductType = "bsbm-inst_ProductType131";
+	private static String ProductFeature1 = "bsbm-inst_ProductFeature115";
+	private static String ProductFeature2 = "bsbm-inst_ProductFeature1621";
+	private static String ProductType = "bsbm-inst_ProductType151";
 	private static int x = 0;
 	// End Query Information
 	
@@ -86,7 +85,7 @@ public class ReduceSideJoin {
 		job.setReducerClass(ReduceSideJoin_Reducer.class);    // reducer class
 		job.setNumReduceTasks(1);    // at least one, adjust as required
 	
-		FileOutputFormat.setOutputPath(job, new Path("output/2014-03-21"));
+		FileOutputFormat.setOutputPath(job, new Path("output/2014-03-22"));
 
 		try {
 			System.exit(job.waitForCompletion(true) ? 0 : 1);
@@ -164,13 +163,15 @@ public class ReduceSideJoin {
 		public void reduce(Text key, Iterable<KeyValueArrayWritable> values, Context context) throws IOException, InterruptedException {
 		      StringBuilder builder = new StringBuilder();
 		      for (KeyValueArrayWritable array : values) {
+		    	  
 		        for (KeyValue kv : (KeyValue[]) array.toArray()) {
+		        	String[] triple = null;
 		        	try {
-						builder.append(keyValueToTripleString(kv));
+						triple = keyValueToTripleString(kv);
 					} catch (ClassNotFoundException e) {
 						e.printStackTrace();
 					}
-		        	
+		        	builder.append(triple[0] + " " + triple[1] + " " + triple[2] +"\n");
 		        }
 		      }
 			context.write(key, new Text(builder.toString()));
@@ -186,59 +187,71 @@ public class ReduceSideJoin {
 		 * @param KeyValue kv - A single Hadoop KeyValue. Contains (key,value)=(subject,HBase cell)
 		 * @return String result - String in the form: <Subject> <Predicate> <Object>
 		 */
-		public String keyValueToTripleString(KeyValue kv) throws IOException, ClassNotFoundException {
-			StringBuilder builder = new StringBuilder();
-			String result;
+		public String[] keyValueToTripleString(KeyValue kv) throws IOException, ClassNotFoundException {
+			String[] result = new String[3];
 			/* If a literal then we need to:
         	 * 1. Use the column as the predicate
         	 * 2. Convert byte arrays to double/string/data format
         	 */
         	String columnName = new String(kv.getBuffer(), kv.getQualifierOffset(), kv.getQualifierLength());
-        	// Double/integer literals
+        	// integer literals
         	if (columnName.contains("bsbm-voc_productPropertyNumeric") ||
-        			columnName.equals("bsbm-voc_price") ||
         			columnName.equals("bsbm-voc_deliveryDays")) {
         		byte[] rawBytes = kv.getValue();
+    			int number = ByteBuffer.wrap(rawBytes).getInt();
+    			
+    			result[0] = new String(kv.getBuffer(), kv.getKeyOffset(), kv.getKeyLength());
+    			result[1] = new String(kv.getBuffer(), kv.getQualifierOffset(), kv.getQualifierLength());
+    			result[2] = number + "";
+    			return result;
+        	}
+        	// Type: double
+        	else if (columnName.contains("bsbm-voc_price")) {
+        		byte[] rawBytes = kv.getValue();
     			double number = ByteBuffer.wrap(rawBytes).getDouble();
-    			result =  new String(kv.getBuffer(), kv.getKeyOffset(), kv.getKeyLength()) + "\t"
-    	        		+ new String(kv.getBuffer(), kv.getQualifierOffset(), kv.getQualifierLength()) + "\t"
-    	        		+ number + "\n";
+    			
+    			result[0] = new String(kv.getBuffer(), kv.getKeyOffset(), kv.getKeyLength());
+    			result[1] = new String(kv.getBuffer(), kv.getQualifierOffset(), kv.getQualifierLength());
+    			result[2] = number + "";
     			return result;
         	}
         	// String literals
         	else if (columnName.contains("bsbm-voc_productPropertyTextual")) {
-        		result =  new String(kv.getBuffer(), kv.getKeyOffset(), kv.getKeyLength()) + "\t"
-    	        		+ new String(kv.getBuffer(), kv.getQualifierOffset(), kv.getQualifierLength()) + "\t"
-    	        		+ new String(kv.getValue()) + "\n";
+        		result[0] = new String(kv.getBuffer(), kv.getKeyOffset(), kv.getKeyLength());
+    			result[1] = new String(kv.getBuffer(), kv.getQualifierOffset(), kv.getQualifierLength());
+    			result[2] = new String(kv.getValue());
     			return result;
         	}
         	// Date literal
         	else if (columnName.equals("dc_date")) {
         		ObjectInputStream ois = new ObjectInputStream(new ByteArrayInputStream(kv.getValue()));
-        		Date d = (Date) ois.readObject();
+        		long longDate = (long) ois.readObject();
         		ois.close();
-        		result =  new String(kv.getBuffer(), kv.getKeyOffset(), kv.getKeyLength()) + "\t"
-    	        		+ new String(kv.getBuffer(), kv.getQualifierOffset(), kv.getQualifierLength()) + "\t"
-    	        		+ d.toString() + "\n";
+        		// Use SQL date since we don't need HH:mm:ss
+        		java.sql.Date date = new java.sql.Date(longDate);
+        		result[0] = new String(kv.getBuffer(), kv.getKeyOffset(), kv.getKeyLength());
+    			result[1] = new String(kv.getBuffer(), kv.getQualifierOffset(), kv.getQualifierLength());
+    			result[2] = date.toString();
     			return result;
         	}
         	// DateTime
         	else if (columnName.equals("bsbm-voc_validTo") ||
         			 columnName.equals("bsbm-voc_validFrom")) { 
         		ObjectInputStream ois = new ObjectInputStream(new ByteArrayInputStream(kv.getValue()));
-        		DateTime d = (DateTime) ois.readObject();
+        		long longDate = (long) ois.readObject();
         		ois.close();
-        		result =  new String(kv.getBuffer(), kv.getKeyOffset(), kv.getKeyLength()) + "\t"
-    	        		+ new String(kv.getBuffer(), kv.getQualifierOffset(), kv.getQualifierLength()) + "\t"
-    	        		+ format1.print(d) + "T" + format2.print(d) + "\n";
+        		// Use java date since we need full datetime
+        		org.joda.time.DateTime d = new org.joda.time.DateTime(longDate);
+        		result[0] = new String(kv.getBuffer(), kv.getKeyOffset(), kv.getKeyLength());
+    			result[1] = new String(kv.getBuffer(), kv.getQualifierOffset(), kv.getQualifierLength());
+    			result[2] = format1.print(d) + "T" + format2.print(d);
     			return result;
         	}
         	// Object is not a literal
-        	builder.append(""+
-        		  new String(kv.getBuffer(), kv.getKeyOffset(), kv.getKeyLength()) + "\t"
-        		+ new String(kv.getBuffer(), kv.getValueOffset(), kv.getValueLength()) + "\t"
-        		+ new String(kv.getBuffer(), kv.getQualifierOffset(), kv.getQualifierLength()) + "\n");
-			return builder.toString();
+    		result[0] = new String(kv.getBuffer(), kv.getKeyOffset(), kv.getKeyLength());
+			result[1] = new String(kv.getBuffer(), kv.getValueOffset(), kv.getValueLength());
+			result[2] = new String(kv.getBuffer(), kv.getQualifierOffset(), kv.getQualifierLength());
+			return result;
 		}
 		
 	}
