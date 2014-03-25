@@ -6,6 +6,7 @@
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.LinkedList;
 import java.util.List;
 
 import org.apache.hadoop.conf.Configuration;
@@ -29,11 +30,22 @@ import org.joda.time.format.DateTimeFormatter;
 public class ReduceSideJoinBSBMQ2 {
 	
 	// Begin Query Information
-	private static String ProductFeature1 = "bsbm-inst_ProductFeature115";
-	private static String ProductFeature2 = "bsbm-inst_ProductFeature115";
-	private static String ProductType = "bsbm-inst_ProductType151";
-	private static int x = 0;
-	private static String[] ProjectedVariables = {"rdfs_label"};
+	private static String ProductXYZ = "bsbm-inst_ProductType151";
+	private static String[] ProjectedVariables = {
+		"rdfs_label",
+		"rdfs_comment",
+		"bsbm-voc_productFeature",
+		"bsbm-voc_productPropertyTextual1",
+		"bsbm-voc_productPropertyTextual2",
+		"bsbm-voc_productPropertyTextual3",
+		"bsbm-voc_productPropertyNumeric1",
+		"bsbm-voc_productPropertyNumeric2"
+		};
+	private static String[] OptionalProjectedVariables = {
+		"bsbm-voc_productPropertyTextual4",
+		"bsbm-voc_productPropertyTextual5",
+		"bsbm-voc_productPropertyNumeric4"
+	};
 	// End Query Information
 	
 	private static byte[] CF_AS_BYTES = "o".getBytes();
@@ -84,7 +96,7 @@ public class ReduceSideJoinBSBMQ2 {
 		job.setReducerClass(ReduceSideJoin_Reducer.class);    // reducer class
 		job.setNumReduceTasks(1);    // at least one, adjust as required
 	
-		FileOutputFormat.setOutputPath(job, new Path("output/BSBMQ1"));
+		FileOutputFormat.setOutputPath(job, new Path("output/BSBMQ2"));
 
 		try {
 			System.exit(job.waitForCompletion(true) ? 0 : 1);
@@ -106,66 +118,83 @@ SELECT
 	?label ?comment ?producer ?productFeature ?propertyTextual1 ?propertyTextual2 ?propertyTextual3
  	?propertyNumeric1 ?propertyNumeric2 ?propertyTextual4 ?propertyTextual5 ?propertyNumeric4 
 WHERE {
-	%ProductXYZ% rdfs:label ?label .
-	%ProductXYZ% rdfs:comment ?comment .
-	%ProductXYZ% bsbm:productPropertyTextual1 ?propertyTextual1 .
-	%ProductXYZ% bsbm:productPropertyTextual2 ?propertyTextual2 .
-	%ProductXYZ% bsbm:productPropertyTextual3 ?propertyTextual3 .
-	%ProductXYZ% bsbm:productPropertyNumeric1 ?propertyNumeric1 .
-	%ProductXYZ% bsbm:productPropertyNumeric2 ?propertyNumeric2 .
-	%ProductXYZ% dc:publisher ?p . 
-	%ProductXYZ% bsbm:producer ?p .
-	?p rdfs:label ?producer .
-	%ProductXYZ% bsbm:productFeature ?f .
-	?f rdfs:label ?productFeature .
-	OPTIONAL { %ProductXYZ% bsbm:productPropertyTextual4 ?propertyTextual4 }
-	OPTIONAL { %ProductXYZ% bsbm:productPropertyTextual5 ?propertyTextual5 }
-	OPTIONAL { %ProductXYZ% bsbm:productPropertyNumeric4 ?propertyNumeric4 }
+	[TriplePattern-01]	%ProductXYZ% rdfs:label ?label .
+	[TriplePattern-02]	%ProductXYZ% rdfs:comment ?comment .
+	[TriplePattern-03]	%ProductXYZ% bsbm:productPropertyTextual1 ?propertyTextual1 .
+	[TriplePattern-04]	%ProductXYZ% bsbm:productPropertyTextual2 ?propertyTextual2 .
+	[TriplePattern-05]	%ProductXYZ% bsbm:productPropertyTextual3 ?propertyTextual3 .
+	[TriplePattern-06]	%ProductXYZ% bsbm:productPropertyNumeric1 ?propertyNumeric1 .
+	[TriplePattern-07]	%ProductXYZ% bsbm:productPropertyNumeric2 ?propertyNumeric2 .
+	[TriplePattern-08]	%ProductXYZ% dc:publisher ?p . 
+	[TriplePattern-09]	%ProductXYZ% bsbm:producer ?p .
+	[TriplePattern-10]	?p rdfs:label ?producer .
+	[TriplePattern-11]	%ProductXYZ% bsbm:productFeature ?f .
+	[TriplePattern-12]	?f rdfs:label ?productFeature .
+	[TriplePattern-13]	OPTIONAL { %ProductXYZ% bsbm:productPropertyTextual4 ?propertyTextual4 }
+	[TriplePattern-14]	OPTIONAL { %ProductXYZ% bsbm:productPropertyTextual5 ?propertyTextual5 }
+	[TriplePattern-15]	OPTIONAL { %ProductXYZ% bsbm:productPropertyNumeric4 ?propertyNumeric4 }
 }
 		   ---------------------------------------
 		 */
-			// TriplePattern-2
-			byte[] item2 = value.getValue(CF_AS_BYTES, Bytes.toBytes(ProductType));
-			if (item2 == null) { return; }
-			String item2_str = new String(item2);
-			if (!item2_str.equals("rdf_type")) { return; }
+			List<KeyValue> entireRowAsList = value.list();
 			
-			// TriplePattern-3
-			byte[] item3 = value.getValue(CF_AS_BYTES, Bytes.toBytes(ProductFeature1));
-			if (item3 == null) { return; }
-			String item3_str = new String(item3);
-			if (!item3_str.equals("bsbm-voc_productFeature")) { return; }
-	
-			// TriplePattern-4
-			byte[] item4 = value.getValue(CF_AS_BYTES, Bytes.toBytes(ProductFeature2));
-			if (item4 == null) { return; }
-			String item4_str = new String(item4);
-		    if (!item4_str.equals("bsbm-voc_productFeature")) { return; }
-
-			// TriplePattern-6 - Since this is a literal, the predicate is the column name
-			byte[] item6 = value.getValue(CF_AS_BYTES, Bytes.toBytes("bsbm-voc_productPropertyNumeric1"));
-			if (item6 == null) { return; }
-			int number6 = ByteBuffer.wrap(item6).getInt();
-			if (number6 <= x) { return; }
+			// TriplePattern-08
+			// TriplePattern-09
+			boolean foundPublisher = false;
+			boolean foundProducer = false;
+			boolean publisherProducerEqual = false;
+			String publisher = "a";
+			String producer = "b";
+			for (KeyValue kv : entireRowAsList) {
+				if (foundPublisher == false && new String(kv.getValue()).equals("dc_publisher")) {
+					foundPublisher = true;
+					publisher = new String(kv.getQualifier());
+				}
+				if (foundProducer == false && new String(kv.getValue()).equals("bsbm-voc_producer")) {
+					foundPublisher = true;
+					producer = new String(kv.getQualifier());
+				}
+				if (publisher.equals(producer)) {
+					break;
+				}
+			}
+			if (!publisher.equals(producer)) {
+				return;
+			}
 			
 			// Subject (Mapper Output: Key)
 			text.set(new String(value.getRow()));
 			
 			// HBase row for that subject (Mapper Output: Value)
-			List<KeyValue> entireRowAsList = value.list();
-			KeyValue[] entireRow = new KeyValue[ProjectedVariables.length];
 			
-			int index = 0;
+			List<KeyValue> relevantAttributes = new LinkedList<KeyValue>();
+			
+			int requiredColumnCount = 0;
 			for (int i = 0; i < entireRowAsList.size(); i++) {
 				// Reduce data sent across network by writing only columns that we know will be used
 				for (String project : ProjectedVariables) {
 					if (new String(entireRowAsList.get(i).getQualifier()).equals(project)) {
-						entireRow[index] = entireRowAsList.get(i);
-						index++;
+						relevantAttributes.add(entireRowAsList.get(i));
+						// Since some parts of the query are required and some are
+						// optional, we must make sure all the required attributes
+						// do in fact exist and are included in the result
+						requiredColumnCount++;
+						break;
+					}
+				}
+				for (String project : OptionalProjectedVariables) {
+					if (new String(entireRowAsList.get(i).getQualifier()).equals(project)) {
+						relevantAttributes.add(entireRowAsList.get(i));
+						break;
 					}
 				}
 			}
-	    	context.write(text, new KeyValueArrayWritable(entireRow));
+			// If perhaps the row did not contain a required attribute, terminate
+			if (requiredColumnCount != ProjectedVariables.length) {
+				return;
+			}
+			KeyValue[] shortRow = (KeyValue[]) relevantAttributes.toArray();
+	    	context.write(text, new KeyValueArrayWritable(shortRow));
 		}
 	}
 	
