@@ -27,6 +27,17 @@ import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
 
+
+/*
+ * TODO: 3/25/2014 - Albert
+ * 1. Test the mapper function
+ * It should output subjects that have the same producer and publisher
+ * 
+ * 2. Inside the mapper, also write some IF statements to
+ * grab the producer/publisher labels and tag these KVs with KeyVaule.Type.Maximum
+ * 
+ */
+
 public class ReduceSideJoinBSBMQ2 {
 	
 	// Begin Query Information
@@ -142,7 +153,6 @@ WHERE {
 			// TriplePattern-09
 			boolean foundPublisher = false;
 			boolean foundProducer = false;
-			boolean publisherProducerEqual = false;
 			String publisher = "a";
 			String producer = "b";
 			for (KeyValue kv : entireRowAsList) {
@@ -150,19 +160,16 @@ WHERE {
 					foundPublisher = true;
 					publisher = new String(kv.getQualifier());
 				}
-				if (foundProducer == false && new String(kv.getValue()).equals("bsbm-voc_producer")) {
+				else if (foundProducer == false && new String(kv.getValue()).equals("bsbm-voc_producer")) {
 					foundPublisher = true;
 					producer = new String(kv.getQualifier());
 				}
-				if (publisher.equals(producer)) {
-					break;
-				}
+				if (publisher.equals(producer)) { break; }
 			}
-			if (!publisher.equals(producer)) {
-				return;
-			}
+			// If the subject doesn't have the same publisher and producer, then skip this subject
+			if (!publisher.equals(producer)) { return; }
 			
-			// Subject (Mapper Output: Key)
+			// Output the key plus the table tag
 			text.set(new String(value.getRow()));
 			
 			// HBase row for that subject (Mapper Output: Value)
@@ -172,19 +179,21 @@ WHERE {
 			int requiredColumnCount = 0;
 			for (int i = 0; i < entireRowAsList.size(); i++) {
 				// Reduce data sent across network by writing only columns that we know will be used
+				KeyValue currentKv = entireRowAsList.get(i);
 				for (String project : ProjectedVariables) {
-					if (new String(entireRowAsList.get(i).getQualifier()).equals(project)) {
-						relevantAttributes.add(entireRowAsList.get(i));
-						// Since some parts of the query are required and some are
-						// optional, we must make sure all the required attributes
-						// do in fact exist and are included in the result
+					// Since some parts of the query are required and some are
+					// optional, we must make sure all the required attributes
+					// do in fact exist and are included in the result
+					if (new String(currentKv.getQualifier()).equals(project)) {
+						// Products have the KeyValue.Type.Minimum
+						relevantAttributes.add(addTagToKv(currentKv, KeyValue.Type.Minimum));
 						requiredColumnCount++;
 						break;
 					}
 				}
 				for (String project : OptionalProjectedVariables) {
-					if (new String(entireRowAsList.get(i).getQualifier()).equals(project)) {
-						relevantAttributes.add(entireRowAsList.get(i));
+					if (new String(currentKv.getQualifier()).equals(project)) {
+						relevantAttributes.add(addTagToKv(currentKv, KeyValue.Type.Minimum));
 						break;
 					}
 				}
@@ -194,7 +203,20 @@ WHERE {
 				return;
 			}
 			KeyValue[] shortRow = (KeyValue[]) relevantAttributes.toArray();
+			// Write the PUBLISHER as the key so that all publishers get sent to same reducer
+			// Case 1: row is a product, so we write the key as publisher, TAG 1
+			// Case 2: row is a publisher, write key as the subject, TAG 2
+			// Single publisher is sent to reducer, we perform the join by checking 2 tags
 	    	context.write(text, new KeyValueArrayWritable(shortRow));
+		}
+		
+		private KeyValue addTagToKv(KeyValue kv, KeyValue.Type type) {
+			return new KeyValue(
+					kv.getRow(),
+					kv.getFamily(),
+					kv.getQualifier(),
+					kv.getTimestamp(),
+					type);
 		}
 	}
 	
