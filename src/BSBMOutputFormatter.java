@@ -19,7 +19,7 @@ public class BSBMOutputFormatter {
 	 * we must output the correct String concatenation for both cases.
 	 * 
 	 * @param KeyValue kv - A single Hadoop KeyValue. Contains (key,value)=(subject,HBase cell)
-	 * @return String result - String in the form: <Subject> <Predicate> <Object>
+	 * @return String[] result - String array of length 3 containing: <Subject>, <Predicate>, <Object>
 	 */
 	public static String[] keyValueToTripleString(KeyValue kv) throws IOException, ClassNotFoundException {
 		String[] result = new String[3];
