@@ -21,6 +21,7 @@ import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Reducer;
+import org.apache.hadoop.mapreduce.Reducer.Context;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
@@ -99,19 +100,28 @@ public class ReduceSideJoinBSBMQ2 {
 		private Text text = new Text();
 
 		public void map(ImmutableBytesWritable row, Result value, Context context) throws InterruptedException, IOException {
-		/* BERLIN SPARQL BENHCMARK QUERY 1
+		/* BERLIN SPARQL BENHCMARK QUERY 2
 		   ----------------------------------------
-		   SELECT DISTINCT ?product ?label
-			WHERE { 
- [TriplePattern-1] ?product rdfs:label ?label .  
- [TriplePattern-2] ?product a %ProductType% .
- [TriplePattern-3] ?product bsbm:productFeature %ProductFeature1% . 
- [TriplePattern-4] ?product bsbm:productFeature %ProductFeature2% . 
- [TriplePattern-5] ?product bsbm:productPropertyNumeric1 ?value1 . 
- [TriplePattern-6] FILTER (?value1 > %x%) 
-				}
-			ORDER BY ?label
-			LIMIT 10
+SELECT
+	?label ?comment ?producer ?productFeature ?propertyTextual1 ?propertyTextual2 ?propertyTextual3
+ 	?propertyNumeric1 ?propertyNumeric2 ?propertyTextual4 ?propertyTextual5 ?propertyNumeric4 
+WHERE {
+	%ProductXYZ% rdfs:label ?label .
+	%ProductXYZ% rdfs:comment ?comment .
+	%ProductXYZ% bsbm:productPropertyTextual1 ?propertyTextual1 .
+	%ProductXYZ% bsbm:productPropertyTextual2 ?propertyTextual2 .
+	%ProductXYZ% bsbm:productPropertyTextual3 ?propertyTextual3 .
+	%ProductXYZ% bsbm:productPropertyNumeric1 ?propertyNumeric1 .
+	%ProductXYZ% bsbm:productPropertyNumeric2 ?propertyNumeric2 .
+	%ProductXYZ% dc:publisher ?p . 
+	%ProductXYZ% bsbm:producer ?p .
+	?p rdfs:label ?producer .
+	%ProductXYZ% bsbm:productFeature ?f .
+	?f rdfs:label ?productFeature .
+	OPTIONAL { %ProductXYZ% bsbm:productPropertyTextual4 ?propertyTextual4 }
+	OPTIONAL { %ProductXYZ% bsbm:productPropertyTextual5 ?propertyTextual5 }
+	OPTIONAL { %ProductXYZ% bsbm:productPropertyNumeric4 ?propertyNumeric4 }
+}
 		   ---------------------------------------
 		 */
 			// TriplePattern-2
@@ -161,9 +171,6 @@ public class ReduceSideJoinBSBMQ2 {
 	
 	public static class ReduceSideJoin_Reducer extends Reducer<Text, KeyValueArrayWritable, Text, Text>  {
 		
-		private static DateTimeFormatter format1 = DateTimeFormat.forPattern("yyyy-MM-dd");
-		private static DateTimeFormatter format2 = DateTimeFormat.forPattern("HH-mm-ss");
-		
 		public void reduce(Text key, Iterable<KeyValueArrayWritable> values, Context context) throws IOException, InterruptedException {
 		      StringBuilder builder = new StringBuilder();
 		      for (KeyValueArrayWritable array : values) {
@@ -171,7 +178,7 @@ public class ReduceSideJoinBSBMQ2 {
 		        for (KeyValue kv : (KeyValue[]) array.toArray()) {
 		        	String[] triple = null;
 		        	try {
-						triple = keyValueToTripleString(kv);
+						triple = BSBMOutputFormatter.keyValueToTripleString(kv);
 					} catch (ClassNotFoundException e) {
 						e.printStackTrace();
 					}
@@ -180,90 +187,6 @@ public class ReduceSideJoinBSBMQ2 {
 		      }
 			context.write(key, new Text(builder.toString()));
 		}
-		
-		/*
-		 * This method takes a KeyValue as an input and will return the String
-		 * concatenation of the correct subject, predicate, and object. This method is
-		 * necessary since the database stores most objects as columns except literals. In
-		 * the case of literals, the column is the actual triple's predicate. Therefore
-		 * we must output the correct String concatenation for both cases.
-		 * 
-		 * @param KeyValue kv - A single Hadoop KeyValue. Contains (key,value)=(subject,HBase cell)
-		 * @return String result - String in the form: <Subject> <Predicate> <Object>
-		 */
-		public String[] keyValueToTripleString(KeyValue kv) throws IOException, ClassNotFoundException {
-			String[] result = new String[3];
-			/* If a literal then we need to:
-        	 * 1. Use the column as the predicate
-        	 * 2. Convert byte arrays to double/string/data format
-        	 */
-        	String columnName = new String(kv.getBuffer(), kv.getQualifierOffset(), kv.getQualifierLength());
-        	// integer literals
-        	if (columnName.contains("bsbm-voc_productPropertyNumeric") ||
-        		columnName.equals("bsbm-voc_deliveryDays")) {
-        		byte[] rawBytes = kv.getValue();
-    			int number = ByteBuffer.wrap(rawBytes).getInt();
-    			
-    			result[0] = new String(kv.getBuffer(), kv.getKeyOffset(), kv.getKeyLength());
-    			result[1] = new String(kv.getBuffer(), kv.getQualifierOffset(), kv.getQualifierLength());
-    			result[2] = number + "";
-    			return result;
-        	}
-        	// Type: double
-        	else if (columnName.contains("bsbm-voc_price")) {
-        		byte[] rawBytes = kv.getValue();
-    			double number = ByteBuffer.wrap(rawBytes).getDouble();
-    			
-    			result[0] = new String(kv.getBuffer(), kv.getKeyOffset(), kv.getKeyLength());
-    			result[1] = new String(kv.getBuffer(), kv.getQualifierOffset(), kv.getQualifierLength());
-    			result[2] = number + "";
-    			return result;
-        	}
-        	// String literals
-        	else if (columnName.contains("bsbm-voc_productPropertyTextual")) {
-        		result[0] = new String(kv.getBuffer(), kv.getKeyOffset(), kv.getKeyLength());
-    			result[1] = new String(kv.getBuffer(), kv.getQualifierOffset(), kv.getQualifierLength());
-    			result[2] = new String(kv.getValue());
-    			return result;
-        	}
-        	// Date literal
-        	else if (columnName.equals("dc_date")) {
-        		byte[] rawBytes = kv.getValue();
-        		long longDate = ByteBuffer.wrap(rawBytes).getLong();
-        		// Use SQL date since we don't need HH:mm:ss
-        		java.sql.Date date = new java.sql.Date(longDate);
-        		result[0] = new String(kv.getBuffer(), kv.getKeyOffset(), kv.getKeyLength());
-    			result[1] = new String(kv.getBuffer(), kv.getQualifierOffset(), kv.getQualifierLength());
-    			result[2] = date.toString();
-    			return result;
-        	}
-        	// DateTime
-        	else if (columnName.equals("bsbm-voc_validTo") ||
-        			 columnName.equals("bsbm-voc_validFrom")) { 
-        		byte[] rawBytes = kv.getValue();
-        		long longDate = ByteBuffer.wrap(rawBytes).getLong();
-        		// Use java date since we need full datetime
-        		org.joda.time.DateTime d = new org.joda.time.DateTime(longDate);
-        		result[0] = new String(kv.getBuffer(), kv.getKeyOffset(), kv.getKeyLength());
-    			result[1] = new String(kv.getBuffer(), kv.getQualifierOffset(), kv.getQualifierLength());
-    			result[2] = format1.print(d) + "T" + format2.print(d);
-    			return result;
-        	}
-        	else if (columnName.equals("rdfs_label") ||
-        			 columnName.equals("rdfs_comment")) { 
-        		result[0] = new String(kv.getBuffer(), kv.getKeyOffset(), kv.getKeyLength());
-        		result[1] = new String(kv.getBuffer(), kv.getQualifierOffset(), kv.getQualifierLength());
-    			result[2] = new String(kv.getBuffer(), kv.getValueOffset(), kv.getValueLength());
-	   			return result;
-        	}
-        	
-        	// Object is not a literal
-    		result[0] = new String(kv.getBuffer(), kv.getKeyOffset(), kv.getKeyLength());
-			result[1] = new String(kv.getBuffer(), kv.getValueOffset(), kv.getValueLength());
-			result[2] = new String(kv.getBuffer(), kv.getQualifierOffset(), kv.getQualifierLength());
-			return result;
-		}
-		
 	}
 		    
 }
