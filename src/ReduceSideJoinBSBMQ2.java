@@ -88,7 +88,7 @@ public class ReduceSideJoinBSBMQ2 {
 	    //scan.setFilter(rowColBloomFilter());
 		
 		Job job = new Job(hConf);
-		job.setJobName("BSBM-Q1-ReduceSideJoin");
+		job.setJobName("BSBM-Q2-ReduceSideJoin");
 		job.setJarByClass(ReduceSideJoinBSBMQ1.class);
 		// Change caching to speed up the scan
 		scan.setCaching(500);        
@@ -167,10 +167,12 @@ WHERE {
 				if (publisher.equals(producer)) { break; }
 			}
 			// If the subject doesn't have the same publisher and producer, then skip this subject
-			if (!publisher.equals(producer)) { return; }
+			//if (!publisher.equals(producer)) { return; }
 			
 			// Output the key plus the table tag
 			text.set(new String(value.getRow()));
+			context.write(text, new KeyValueArrayWritable((KeyValue[]) entireRowAsList.toArray()));
+			/*
 			
 			// HBase row for that subject (Mapper Output: Value)
 			
@@ -203,11 +205,13 @@ WHERE {
 				return;
 			}
 			KeyValue[] shortRow = (KeyValue[]) relevantAttributes.toArray();
+			
 			// Write the PUBLISHER as the key so that all publishers get sent to same reducer
 			// Case 1: row is a product, so we write the key as publisher, TAG 1
 			// Case 2: row is a publisher, write key as the subject, TAG 2
 			// Single publisher is sent to reducer, we perform the join by checking 2 tags
-	    	context.write(text, new KeyValueArrayWritable(shortRow));
+			*/
+	    	
 		}
 		
 		private KeyValue addTagToKv(KeyValue kv, KeyValue.Type type) {
@@ -233,7 +237,7 @@ WHERE {
 					} catch (ClassNotFoundException e) {
 						e.printStackTrace();
 					}
-		        	builder.append("\t" + triple[1] + "\t" + triple[2] +"\n");
+		        	builder.append(triple[0] + "\t" + triple[1] + "\t" + triple[2] +"\n");
 		        }
 		      }
 			context.write(key, new Text(builder.toString()));
