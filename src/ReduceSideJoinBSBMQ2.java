@@ -155,25 +155,24 @@ WHERE {
 			boolean foundProducer = false;
 			String publisher = "a";
 			String producer = "b";
-			for (KeyValue kv : entireRowAsList) {
-				if (foundPublisher == false && new String(kv.getValue()).equals("dc_publisher")) {
-					foundPublisher = true;
-					publisher = new String(kv.getQualifier());
-				}
-				else if (foundProducer == false && new String(kv.getValue()).equals("bsbm-voc_producer")) {
-					foundPublisher = true;
-					producer = new String(kv.getQualifier());
-				}
-				if (publisher.equals(producer)) { break; }
-			}
-			// If the subject doesn't have the same publisher and producer, then skip this subject
-			//if (!publisher.equals(producer)) { return; }
+			// This returns 0 triples for this basic graph pattern. Possible error?
+//			for (KeyValue kv : entireRowAsList) {
+//				if (foundPublisher == false && new String(kv.getValue()).equals("dc_publisher")) {
+//					foundPublisher = true;
+//					publisher = new String(kv.getQualifier());
+//				}
+//				else if (foundProducer == false && new String(kv.getValue()).equals("bsbm-voc_producer")) {
+//					foundPublisher = true;
+//					producer = new String(kv.getQualifier());
+//				}
+//				if (publisher.equals(producer)) { break; }
+//			}
+//			// If the subject doesn't have the same publisher and producer, then skip this subject
+//			if (!publisher.equals(producer)) { return; }
 			
 			// Output the key plus the table tag
 			text.set(new String(value.getRow()));
-			context.write(text, new KeyValueArrayWritable((KeyValue[]) entireRowAsList.toArray()));
-			/*
-			
+	
 			// HBase row for that subject (Mapper Output: Value)
 			
 			List<KeyValue> relevantAttributes = new LinkedList<KeyValue>();
@@ -210,7 +209,7 @@ WHERE {
 			// Case 1: row is a product, so we write the key as publisher, TAG 1
 			// Case 2: row is a publisher, write key as the subject, TAG 2
 			// Single publisher is sent to reducer, we perform the join by checking 2 tags
-			*/
+			context.write(text, new KeyValueArrayWritable(shortRow));
 	    	
 		}
 		
