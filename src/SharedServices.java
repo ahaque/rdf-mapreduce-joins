@@ -130,4 +130,13 @@ public class SharedServices {
 		}
 		return serializable;
 	}
+	
+	public static KeyValue addTagToKv(KeyValue kv, KeyValue.Type type) {
+		return new KeyValue(
+				kv.getRow(),
+				kv.getFamily(),
+				kv.getQualifier(),
+				kv.getTimestamp(),
+				type);
+	}
 }

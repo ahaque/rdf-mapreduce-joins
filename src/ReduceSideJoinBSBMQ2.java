@@ -29,16 +29,6 @@ import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
 
 
-/*
- * TODO: 3/25/2014 - Albert
- * 1. Test the mapper function
- * It should output subjects that have the same producer and publisher
- * 
- * 2. Inside the mapper, also write some IF statements to
- * grab the producer/publisher labels and tag these KVs with KeyVaule.Type.Maximum
- * 
- */
-
 public class ReduceSideJoinBSBMQ2 {
 	
 	// Begin Query Information
@@ -159,7 +149,7 @@ WHERE {
 			ArrayList<KeyValue> publisherRowList = new ArrayList<KeyValue>();
 			for (KeyValue kv : entireRowAsList) {
 				if (new String(kv.getQualifier()).equals("rdfs_label")) {
-					publisherRowList.add(addTagToKv(kv, KeyValue.Type.Minimum));
+					publisherRowList.add(SharedServices.addTagToKv(kv, KeyValue.Type.Minimum));
 				}
 			}
 			// Convert to serializable format
@@ -193,15 +183,6 @@ WHERE {
 //			// Write the output product key-value
 //			context.write(text, new KeyValueArrayWritable(productRowListSerializable));
 	    	
-		}
-		
-		private KeyValue addTagToKv(KeyValue kv, KeyValue.Type type) {
-			return new KeyValue(
-					kv.getRow(),
-					kv.getFamily(),
-					kv.getQualifier(),
-					kv.getTimestamp(),
-					type);
 		}
 	}
 	
