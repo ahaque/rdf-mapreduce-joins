@@ -1,15 +1,53 @@
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 import org.apache.hadoop.hbase.KeyValue;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
 
 
-public class BSBMOutputFormatter {
+public class SharedServices {
 	
+	// Literal DATE and DATETIME formats
 	private static DateTimeFormatter format1 = DateTimeFormat.forPattern("yyyy-MM-dd");
 	private static DateTimeFormatter format2 = DateTimeFormat.forPattern("HH-mm-ss");
+	
+	// Possible Literal types
+	private static enum Type {
+		STRING, INT, DOUBLE, DATE, DATETIME
+	}
+	
+	// Literal type mapping
+	private static final HashMap<String, SharedServices.Type> literalTypeMap = new HashMap<String, SharedServices.Type>() {
+		private static final long serialVersionUID = 5450689415960928404L;
+	{
+		put("dc_date",SharedServices.Type.DATE);
+		put("dc_title", SharedServices.Type.STRING);
+		put("rdfs_label", SharedServices.Type.STRING);
+		put("rdfs_comment", SharedServices.Type.STRING);
+		put("rev_reviewer", SharedServices.Type.STRING);
+		put("rev_text", SharedServices.Type.STRING);
+		put("bsbm-voc_productPropertyNumeric1", SharedServices.Type.INT);
+		put("bsbm-voc_productPropertyNumeric2", SharedServices.Type.INT);
+		put("bsbm-voc_productPropertyNumeric3", SharedServices.Type.INT);
+		put("bsbm-voc_productPropertyNumeric5", SharedServices.Type.INT);
+		put("bsbm-voc_productPropertyTextual1", SharedServices.Type.STRING);
+		put("bsbm-voc_productPropertyTextual2", SharedServices.Type.STRING);
+		put("bsbm-voc_productPropertyTextual3", SharedServices.Type.STRING);
+		put("bsbm-voc_productPropertyTextual4", SharedServices.Type.STRING);
+		put("bsbm-voc_productPropertyNumeric6", SharedServices.Type.INT);
+		put("bsbm-voc_productPropertyTextual6", SharedServices.Type.STRING);
+		put("bsbm-voc_productPropertyNumeric4", SharedServices.Type.INT);
+		put("bsbm-voc_productPropertyTextual5", SharedServices.Type.STRING);
+		put("bsbm-voc_price", SharedServices.Type.DOUBLE);
+		put("bsbm-voc_validFrom", SharedServices.Type.DATETIME);
+		put("bsbm-voc_validTo", SharedServices.Type.DATETIME);
+		put("bsbm-voc_deliveryDays", SharedServices.Type.INT);
+		put("bsbm-voc_reviewDate", SharedServices.Type.DATE);
+	}};
 	
 	/*
 	 * This method takes a KeyValue as an input and will return the String
@@ -29,8 +67,7 @@ public class BSBMOutputFormatter {
     	 */
     	String columnName = new String(kv.getBuffer(), kv.getQualifierOffset(), kv.getQualifierLength());
     	// integer literals
-    	if (columnName.contains("bsbm-voc_productPropertyNumeric") ||
-    		columnName.equals("bsbm-voc_deliveryDays")) {
+    	if (literalTypeMap.get(columnName) == SharedServices.Type.INT) {
     		byte[] rawBytes = kv.getValue();
 			int number = ByteBuffer.wrap(rawBytes).getInt();
 			
@@ -40,7 +77,7 @@ public class BSBMOutputFormatter {
 			return result;
     	}
     	// Type: double
-    	else if (columnName.contains("bsbm-voc_price")) {
+    	else if (literalTypeMap.get(columnName) == SharedServices.Type.DOUBLE) {
     		byte[] rawBytes = kv.getValue();
 			double number = ByteBuffer.wrap(rawBytes).getDouble();
 			
@@ -50,14 +87,14 @@ public class BSBMOutputFormatter {
 			return result;
     	}
     	// String literals
-    	else if (columnName.contains("bsbm-voc_productPropertyTextual")) {
+    	else if (literalTypeMap.get(columnName) == SharedServices.Type.STRING) {
     		result[0] = new String(kv.getBuffer(), kv.getKeyOffset(), kv.getKeyLength());
 			result[1] = new String(kv.getBuffer(), kv.getQualifierOffset(), kv.getQualifierLength());
 			result[2] = new String(kv.getValue());
 			return result;
     	}
     	// Date literal
-    	else if (columnName.equals("dc_date")) {
+    	else if (literalTypeMap.get(columnName) == SharedServices.Type.DATE) {
     		byte[] rawBytes = kv.getValue();
     		long longDate = ByteBuffer.wrap(rawBytes).getLong();
     		// Use SQL date since we don't need HH:mm:ss
@@ -68,23 +105,15 @@ public class BSBMOutputFormatter {
 			return result;
     	}
     	// DateTime
-    	else if (columnName.equals("bsbm-voc_validTo") ||
-    			 columnName.equals("bsbm-voc_validFrom")) { 
+    	else if (literalTypeMap.get(columnName) == SharedServices.Type.DATETIME) { 
     		byte[] rawBytes = kv.getValue();
     		long longDate = ByteBuffer.wrap(rawBytes).getLong();
-    		// Use java date since we need full datetime
+    		// Use java date since we need full date time
     		org.joda.time.DateTime d = new org.joda.time.DateTime(longDate);
     		result[0] = new String(kv.getBuffer(), kv.getKeyOffset(), kv.getKeyLength());
 			result[1] = new String(kv.getBuffer(), kv.getQualifierOffset(), kv.getQualifierLength());
 			result[2] = format1.print(d) + "T" + format2.print(d);
 			return result;
-    	}
-    	else if (columnName.equals("rdfs_label") ||
-    			 columnName.equals("rdfs_comment")) { 
-    		result[0] = new String(kv.getBuffer(), kv.getKeyOffset(), kv.getKeyLength());
-    		result[1] = new String(kv.getBuffer(), kv.getQualifierOffset(), kv.getQualifierLength());
-			result[2] = new String(kv.getBuffer(), kv.getValueOffset(), kv.getValueLength());
-   			return result;
     	}
     	
     	// Object is not a literal
@@ -92,5 +121,13 @@ public class BSBMOutputFormatter {
 		result[1] = new String(kv.getBuffer(), kv.getValueOffset(), kv.getValueLength());
 		result[2] = new String(kv.getBuffer(), kv.getQualifierOffset(), kv.getQualifierLength());
 		return result;
+	}
+	
+	public static KeyValue[] listToArray(List<KeyValue> input) {
+		KeyValue[] serializable = new KeyValue[input.size()];
+		for (int i = 0; i < input.size(); i++) {
+			serializable[i] = input.get(i);
+		}
+		return serializable;
 	}
 }

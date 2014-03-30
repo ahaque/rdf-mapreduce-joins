@@ -27,9 +27,9 @@ import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 public class ReduceSideJoinBSBMQ1 {
 	
 	// Begin Query Information
-	private static String ProductFeature1 = "bsbm-inst_ProductFeature115";
-	private static String ProductFeature2 = "bsbm-inst_ProductFeature115";
-	private static String ProductType = "bsbm-inst_ProductType151";
+	private static String ProductFeature1 = "bsbm-inst_ProductFeature35";
+	private static String ProductFeature2 = "bsbm-inst_ProductFeature31";
+	private static String ProductType = "bsbm-inst_ProductType183";
 	private static int x = 0;
 	private static String[] ProjectedVariables = {"rdfs_label"};
 	// End Query Information
@@ -167,7 +167,7 @@ public class ReduceSideJoinBSBMQ1 {
 		        for (KeyValue kv : (KeyValue[]) array.toArray()) {
 		        	String[] triple = null;
 		        	try {
-						triple = BSBMOutputFormatter.keyValueToTripleString(kv);
+						triple = SharedServices.keyValueToTripleString(kv);
 					} catch (ClassNotFoundException e) {
 						e.printStackTrace();
 					}

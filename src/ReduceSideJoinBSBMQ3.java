@@ -167,7 +167,7 @@ public class ReduceSideJoinBSBMQ3 {
 		        for (KeyValue kv : (KeyValue[]) array.toArray()) {
 		        	String[] triple = null;
 		        	try {
-						triple = BSBMOutputFormatter.keyValueToTripleString(kv);
+						triple = SharedServices.keyValueToTripleString(kv);
 					} catch (ClassNotFoundException e) {
 						e.printStackTrace();
 					}

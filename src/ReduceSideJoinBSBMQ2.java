@@ -6,6 +6,7 @@
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -71,6 +72,7 @@ public class ReduceSideJoinBSBMQ2 {
 			System.out.println("  " + USAGE_MSG);
 			System.exit(0);
 		}
+				
 		startJob(args);
 	}
 	
@@ -148,68 +150,48 @@ WHERE {
 		   ---------------------------------------
 		 */
 			List<KeyValue> entireRowAsList = value.list();
-			
-			// TriplePattern-08
-			// TriplePattern-09
-			boolean foundPublisher = false;
-			boolean foundProducer = false;
-			String publisher = "a";
-			String producer = "b";
-			// This returns 0 triples for this basic graph pattern. Possible error?
-//			for (KeyValue kv : entireRowAsList) {
-//				if (foundPublisher == false && new String(kv.getValue()).equals("dc_publisher")) {
-//					foundPublisher = true;
-//					publisher = new String(kv.getQualifier());
-//				}
-//				else if (foundProducer == false && new String(kv.getValue()).equals("bsbm-voc_producer")) {
-//					foundPublisher = true;
-//					producer = new String(kv.getQualifier());
-//				}
-//				if (publisher.equals(producer)) { break; }
-//			}
-//			// If the subject doesn't have the same publisher and producer, then skip this subject
-//			if (!publisher.equals(producer)) { return; }
-			
-			// Output the key plus the table tag
+			// Current row we're scanning = r
+			// Set "text" to equal the row key of r
 			text.set(new String(value.getRow()));
-	
-			// HBase row for that subject (Mapper Output: Value)
-			
-			List<KeyValue> relevantAttributes = new LinkedList<KeyValue>();
-			
-			int requiredColumnCount = 0;
-			for (int i = 0; i < entireRowAsList.size(); i++) {
-				// Reduce data sent across network by writing only columns that we know will be used
-				KeyValue currentKv = entireRowAsList.get(i);
-				for (String project : ProjectedVariables) {
-					// Since some parts of the query are required and some are
-					// optional, we must make sure all the required attributes
-					// do in fact exist and are included in the result
-					if (new String(currentKv.getQualifier()).equals(project)) {
-						// Products have the KeyValue.Type.Minimum
-						relevantAttributes.add(addTagToKv(currentKv, KeyValue.Type.Minimum));
-						requiredColumnCount++;
-						break;
-					}
-				}
-				for (String project : OptionalProjectedVariables) {
-					if (new String(currentKv.getQualifier()).equals(project)) {
-						relevantAttributes.add(addTagToKv(currentKv, KeyValue.Type.Minimum));
-						break;
-					}
+
+			// PRODUCER
+			// TriplePattern-10
+			ArrayList<KeyValue> publisherRowList = new ArrayList<KeyValue>();
+			for (KeyValue kv : entireRowAsList) {
+				if (new String(kv.getQualifier()).equals("rdfs_label")) {
+					publisherRowList.add(addTagToKv(kv, KeyValue.Type.Minimum));
 				}
 			}
-			// If perhaps the row did not contain a required attribute, terminate
-			if (requiredColumnCount != ProjectedVariables.length) {
-				return;
-			}
-			KeyValue[] shortRow = (KeyValue[]) relevantAttributes.toArray();
+			// Convert to serializable format
+			context.write(text, new KeyValueArrayWritable(SharedServices.listToArray(publisherRowList)));
 			
-			// Write the PUBLISHER as the key so that all publishers get sent to same reducer
-			// Case 1: row is a product, so we write the key as publisher, TAG 1
-			// Case 2: row is a publisher, write key as the subject, TAG 2
-			// Single publisher is sent to reducer, we perform the join by checking 2 tags
-			context.write(text, new KeyValueArrayWritable(shortRow));
+			
+//			// PRODUCT
+//			List<KeyValue> productRowList = new LinkedList<KeyValue>();
+//			// Convert to array list
+//			ArrayList<String> projectedVariablesList = new ArrayList<String>();
+//			for (String col : ProjectedVariables) {
+//				projectedVariablesList.add(col);
+//			}
+//			// Make sure this row contains all required columns
+//			for (KeyValue kv : entireRowAsList) {
+//				for (String col : projectedVariablesList) {
+//					if (new String(kv.getQualifier()).equals(col)) {
+//						productRowList.add(addTagToKv(kv, KeyValue.Type.Maximum));
+//					}
+//				}
+//				projectedVariablesList.remove(new String(kv.getValue()));
+//			}
+//			// If there is a required projected variable that doesn't exist, quit
+//			if (projectedVariablesList.size() > 0) {
+//				return;
+//			}
+//			KeyValue[] productRowListSerializable = new KeyValue[productRowList.size()];
+//			for (int i = 0; i < productRowList.size(); i++) {
+//				productRowListSerializable[i] = productRowList.get(i);
+//			}
+//			// Write the output product key-value
+//			context.write(text, new KeyValueArrayWritable(productRowListSerializable));
 	    	
 		}
 		
@@ -232,11 +214,11 @@ WHERE {
 		        for (KeyValue kv : (KeyValue[]) array.toArray()) {
 		        	String[] triple = null;
 		        	try {
-						triple = BSBMOutputFormatter.keyValueToTripleString(kv);
+						triple = SharedServices.keyValueToTripleString(kv);
 					} catch (ClassNotFoundException e) {
 						e.printStackTrace();
 					}
-		        	builder.append(triple[0] + "\t" + triple[1] + "\t" + triple[2] +"\n");
+		        	builder.append("\t" + triple[1] + "\t" + triple[2] +"\n");
 		        }
 		      }
 			context.write(key, new Text(builder.toString()));
