@@ -72,7 +72,7 @@ public class SharedServices {
 			int number = ByteBuffer.wrap(rawBytes).getInt();
 			
 			result[0] = new String(kv.getBuffer(), kv.getKeyOffset(), kv.getKeyLength());
-			result[1] = new String(kv.getBuffer(), kv.getQualifierOffset(), kv.getQualifierLength());
+			result[1] = columnName;
 			result[2] = number + "";
 			return result;
     	}
@@ -82,14 +82,14 @@ public class SharedServices {
 			double number = ByteBuffer.wrap(rawBytes).getDouble();
 			
 			result[0] = new String(kv.getBuffer(), kv.getKeyOffset(), kv.getKeyLength());
-			result[1] = new String(kv.getBuffer(), kv.getQualifierOffset(), kv.getQualifierLength());
+			result[1] = columnName;
 			result[2] = number + "";
 			return result;
     	}
     	// String literals
     	else if (literalTypeMap.get(columnName) == SharedServices.Type.STRING) {
     		result[0] = new String(kv.getBuffer(), kv.getKeyOffset(), kv.getKeyLength());
-			result[1] = new String(kv.getBuffer(), kv.getQualifierOffset(), kv.getQualifierLength());
+			result[1] = columnName;
 			result[2] = new String(kv.getValue());
 			return result;
     	}
@@ -100,7 +100,7 @@ public class SharedServices {
     		// Use SQL date since we don't need HH:mm:ss
     		java.sql.Date date = new java.sql.Date(longDate);
     		result[0] = new String(kv.getBuffer(), kv.getKeyOffset(), kv.getKeyLength());
-			result[1] = new String(kv.getBuffer(), kv.getQualifierOffset(), kv.getQualifierLength());
+			result[1] = columnName;
 			result[2] = date.toString();
 			return result;
     	}
@@ -111,7 +111,7 @@ public class SharedServices {
     		// Use java date since we need full date time
     		org.joda.time.DateTime d = new org.joda.time.DateTime(longDate);
     		result[0] = new String(kv.getBuffer(), kv.getKeyOffset(), kv.getKeyLength());
-			result[1] = new String(kv.getBuffer(), kv.getQualifierOffset(), kv.getQualifierLength());
+			result[1] = columnName;
 			result[2] = format1.print(d) + "T" + format2.print(d);
 			return result;
     	}
@@ -119,7 +119,7 @@ public class SharedServices {
     	// Object is not a literal
 		result[0] = new String(kv.getBuffer(), kv.getKeyOffset(), kv.getKeyLength());
 		result[1] = new String(kv.getBuffer(), kv.getValueOffset(), kv.getValueLength());
-		result[2] = new String(kv.getBuffer(), kv.getQualifierOffset(), kv.getQualifierLength());
+		result[2] = columnName;
 		return result;
 	}
 	
@@ -137,6 +137,7 @@ public class SharedServices {
 				kv.getFamily(),
 				kv.getQualifier(),
 				kv.getTimestamp(),
-				type);
+				type,
+				kv.getValue());
 	}
 }

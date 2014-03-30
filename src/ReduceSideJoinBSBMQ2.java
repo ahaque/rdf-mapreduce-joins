@@ -32,7 +32,7 @@ import org.joda.time.format.DateTimeFormatter;
 public class ReduceSideJoinBSBMQ2 {
 	
 	// Begin Query Information
-	private static String ProductXYZ = "bsbm-inst_ProductType151";
+	private static String ProductXYZ = "bsbm-inst_dataFromProducer460/Product22747";
 	private static String[] ProjectedVariables = {
 		"rdfs_label",
 		"rdfs_comment",
@@ -144,44 +144,49 @@ WHERE {
 			// Set "text" to equal the row key of r
 			text.set(new String(value.getRow()));
 
-			// PRODUCER
-			// TriplePattern-10
-			ArrayList<KeyValue> publisherRowList = new ArrayList<KeyValue>();
-			for (KeyValue kv : entireRowAsList) {
-				if (new String(kv.getQualifier()).equals("rdfs_label")) {
-					publisherRowList.add(SharedServices.addTagToKv(kv, KeyValue.Type.Minimum));
-				}
-			}
-			// Convert to serializable format
-			context.write(text, new KeyValueArrayWritable(SharedServices.listToArray(publisherRowList)));
-			
-			
-//			// PRODUCT
-//			List<KeyValue> productRowList = new LinkedList<KeyValue>();
-//			// Convert to array list
-//			ArrayList<String> projectedVariablesList = new ArrayList<String>();
-//			for (String col : ProjectedVariables) {
-//				projectedVariablesList.add(col);
-//			}
-//			// Make sure this row contains all required columns
+			// This works in isolation - 6:31pm EST 3/30/2014
+//			// PRODUCER
+//			// TriplePattern-10
+//			ArrayList<KeyValue> publisherRowList = new ArrayList<KeyValue>();
+//			// Add the "table" tags
 //			for (KeyValue kv : entireRowAsList) {
-//				for (String col : projectedVariablesList) {
-//					if (new String(kv.getQualifier()).equals(col)) {
-//						productRowList.add(addTagToKv(kv, KeyValue.Type.Maximum));
-//					}
+//				if (new String(kv.getQualifier()).equals("rdfs_label")) {
+//					publisherRowList.add(SharedServices.addTagToKv(kv, KeyValue.Type.Maximum));
 //				}
-//				projectedVariablesList.remove(new String(kv.getValue()));
 //			}
-//			// If there is a required projected variable that doesn't exist, quit
-//			if (projectedVariablesList.size() > 0) {
+//			// If row doesn't have a label, skip it
+//			if (publisherRowList.size() == 0) {
 //				return;
 //			}
-//			KeyValue[] productRowListSerializable = new KeyValue[productRowList.size()];
-//			for (int i = 0; i < productRowList.size(); i++) {
-//				productRowListSerializable[i] = productRowList.get(i);
-//			}
-//			// Write the output product key-value
-//			context.write(text, new KeyValueArrayWritable(productRowListSerializable));
+//			context.write(text, new KeyValueArrayWritable(SharedServices.listToArray(publisherRowList)));
+			
+			
+			// PRODUCT
+			List<KeyValue> productRowList = new LinkedList<KeyValue>();
+			// Convert to array list
+			ArrayList<String> projectedVariablesList = new ArrayList<String>();
+			for (String col : ProjectedVariables) {
+				projectedVariablesList.add(col);
+			}
+			// Make sure this row contains all required columns
+			for (KeyValue kv : entireRowAsList) {
+				for (String col : projectedVariablesList) {
+					if (new String(kv.getQualifier()).equals(col)) {
+						productRowList.add(SharedServices.addTagToKv(kv, KeyValue.Type.Minimum));
+					}
+				}
+				projectedVariablesList.remove(new String(kv.getValue()));
+			}
+			// If there is a required projected variable that doesn't exist, quit
+			if (projectedVariablesList.size() > 0) {
+				return;
+			}
+			KeyValue[] productRowListSerializable = new KeyValue[productRowList.size()];
+			for (int i = 0; i < productRowList.size(); i++) {
+				productRowListSerializable[i] = productRowList.get(i);
+			}
+			// Write the output product key-value
+			context.write(text, new KeyValueArrayWritable(productRowListSerializable));
 	    	
 		}
 	}
