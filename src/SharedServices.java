@@ -2,12 +2,11 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 import org.apache.hadoop.hbase.KeyValue;
+import org.apache.hadoop.hbase.util.Bytes;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
-
 
 public class SharedServices {
 	
@@ -19,6 +18,21 @@ public class SharedServices {
 	private static enum Type {
 		STRING, INT, DOUBLE, DATE, DATETIME
 	}
+	
+	public static enum Tag {
+		R1, R2, R3, R4, R5
+	}
+	
+	private static final HashMap<SharedServices.Tag, String> tagMap = new HashMap<SharedServices.Tag, String>() {
+		private static final long serialVersionUID = 5450689415960928404L;
+
+	{
+		put(SharedServices.Tag.R1, "r1");
+		put(SharedServices.Tag.R2, "r2");
+		put(SharedServices.Tag.R3, "r3");
+		put(SharedServices.Tag.R4, "r4");
+		put(SharedServices.Tag.R5, "r5");
+	}};
 	
 	// Literal type mapping
 	private static final HashMap<String, SharedServices.Type> literalTypeMap = new HashMap<String, SharedServices.Type>() {
@@ -60,11 +74,11 @@ public class SharedServices {
 	 * @return String[] result - String array of length 3 containing: <Subject>, <Predicate>, <Object>
 	 */
 	public static String[] keyValueToTripleString(KeyValue kv) throws IOException, ClassNotFoundException {
-		String[] result = new String[3];
+		String[] result = new String[4];
 		/* If a literal then we need to:
     	 * 1. Use the column as the predicate
     	 * 2. Convert byte arrays to double/string/data format
-    	 */
+    	 */	
     	String columnName = new String(kv.getBuffer(), kv.getQualifierOffset(), kv.getQualifierLength());
     	// integer literals
     	if (literalTypeMap.get(columnName) == SharedServices.Type.INT) {
@@ -131,13 +145,16 @@ public class SharedServices {
 		return serializable;
 	}
 	
-	public static KeyValue addTagToKv(KeyValue kv, KeyValue.Type type) {
+	// Takes a KeyValue as input, appends a tag, and outputs the new KeyValue
+	public static KeyValue addTagToKv(KeyValue kv, SharedServices.Tag tag) {
+		StringBuilder build = new StringBuilder();
+		build.append(new String(kv.getValue()));
+		build.append(SharedServices.tagMap.get(tag));
 		return new KeyValue(
 				kv.getRow(),
 				kv.getFamily(),
 				kv.getQualifier(),
 				kv.getTimestamp(),
-				type,
-				kv.getValue());
+				Bytes.toBytes(build.toString()));
 	}
 }

@@ -5,7 +5,6 @@
  */
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
@@ -23,10 +22,7 @@ import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Reducer;
-import org.apache.hadoop.mapreduce.Reducer.Context;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
-import org.joda.time.format.DateTimeFormat;
-import org.joda.time.format.DateTimeFormatter;
 
 
 public class ReduceSideJoinBSBMQ2 {
@@ -140,25 +136,25 @@ WHERE {
 		   ---------------------------------------
 		 */
 			List<KeyValue> entireRowAsList = value.list();
+			ArrayList<KeyValue> keyValuesToTransmit = new ArrayList<KeyValue>();
 			// Current row we're scanning = r
 			// Set "text" to equal the row key of r
 			text.set(new String(value.getRow()));
 
-			// This works in isolation - 6:31pm EST 3/30/2014
-//			// PRODUCER
-//			// TriplePattern-10
-//			ArrayList<KeyValue> publisherRowList = new ArrayList<KeyValue>();
-//			// Add the "table" tags
-//			for (KeyValue kv : entireRowAsList) {
-//				if (new String(kv.getQualifier()).equals("rdfs_label")) {
-//					publisherRowList.add(SharedServices.addTagToKv(kv, KeyValue.Type.Maximum));
-//				}
-//			}
-//			// If row doesn't have a label, skip it
-//			if (publisherRowList.size() == 0) {
-//				return;
-//			}
-//			context.write(text, new KeyValueArrayWritable(SharedServices.listToArray(publisherRowList)));
+			// PRODUCER
+			// TriplePattern-10
+			ArrayList<KeyValue> publisherRowList = new ArrayList<KeyValue>();
+			// Add the "table" tags
+			for (KeyValue kv : entireRowAsList) {
+				if (new String(kv.getQualifier()).equals("rdfs_label")) {
+					publisherRowList.add(SharedServices.addTagToKv(kv, SharedServices.Tag.R1));
+				}
+			}
+			// If row doesn't have a label, then we don't emit anything
+			// If row has "rdfs_label" then we output it
+			if (publisherRowList.size() != 0) {
+				keyValuesToTransmit.addAll(publisherRowList);
+			}
 			
 			
 			// PRODUCT
@@ -170,23 +166,23 @@ WHERE {
 			}
 			// Make sure this row contains all required columns
 			for (KeyValue kv : entireRowAsList) {
-				for (String col : projectedVariablesList) {
-					if (new String(kv.getQualifier()).equals(col)) {
-						productRowList.add(SharedServices.addTagToKv(kv, KeyValue.Type.Minimum));
+				for (int i = 0; i < projectedVariablesList.size(); i++) {
+					if (new String(kv.getQualifier()).equals(projectedVariablesList.get(i))
+							|| new String(kv.getValue()).equals(projectedVariablesList.get(i))) {
+						productRowList.add(SharedServices.addTagToKv(kv, SharedServices.Tag.R2));
+						projectedVariablesList.remove(i);
+						break;
 					}
 				}
-				projectedVariablesList.remove(new String(kv.getValue()));
 			}
-			// If there is a required projected variable that doesn't exist, quit
+			// If the row is missing a required variable, go to next row
 			if (projectedVariablesList.size() > 0) {
 				return;
 			}
-			KeyValue[] productRowListSerializable = new KeyValue[productRowList.size()];
-			for (int i = 0; i < productRowList.size(); i++) {
-				productRowListSerializable[i] = productRowList.get(i);
-			}
 			// Write the output product key-value
-			context.write(text, new KeyValueArrayWritable(productRowListSerializable));
+			keyValuesToTransmit.addAll(productRowList);
+			
+			context.write(text, new KeyValueArrayWritable(SharedServices.listToArray(productRowList)));
 	    	
 		}
 	}
