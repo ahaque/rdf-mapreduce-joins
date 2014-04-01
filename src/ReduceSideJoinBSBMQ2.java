@@ -182,7 +182,7 @@ WHERE {
 			// Write the output product key-value
 			keyValuesToTransmit.addAll(productRowList);
 			
-			context.write(text, new KeyValueArrayWritable(SharedServices.listToArray(productRowList)));
+			context.write(text, new KeyValueArrayWritable(SharedServices.listToArray(keyValuesToTransmit)));
 	    	
 		}
 	}
