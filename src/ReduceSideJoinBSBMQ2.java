@@ -18,8 +18,11 @@ import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.mapreduce.TableMapReduceUtil;
 import org.apache.hadoop.hbase.mapreduce.TableMapper;
+import org.apache.hadoop.hbase.regionserver.StoreFile.BloomType;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.io.Text;
+import org.apache.hadoop.mapred.JobClient;
+import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
@@ -59,10 +62,11 @@ public class ReduceSideJoinBSBMQ2 {
 			System.exit(0);
 		}
 				
-		startJob(args);
+		startJob_Stage1(args);
+		startJob_Stage2(args);
 	}
 	
-	public static Job startJob(String[] args) throws IOException {
+	public static Job startJob_Stage1(String[] args) throws IOException {
 		
 		// args[0] = hbase table name
 		// args[1] = zookeeper
@@ -72,41 +76,91 @@ public class ReduceSideJoinBSBMQ2 {
 	    hConf.set("scan.table", args[0]);
 	    hConf.set("hbase.zookeeper.property.clientPort", "2181");
 
-	    Scan scan = new Scan();
-	    //scan.setFilter(rowColBloomFilter());
-		
-		Job job = new Job(hConf);
-		job.setJobName("BSBM-Q2-ReduceSideJoin");
-		job.setJarByClass(ReduceSideJoinBSBMQ1.class);
+		/*
+		 * MapReduce Stage-1 Job
+		 * Retreive a list of subjects and their attributes
+		 */
+	    Scan scan1 = new Scan();		
+		Job job1 = new Job(hConf);
+		job1.setJobName("BSBM-Q2-ReduceSideJoin-Stage1");
+		job1.setJarByClass(ReduceSideJoinBSBMQ1.class);
 		// Change caching to speed up the scan
-		scan.setCaching(500);        
-		scan.setCacheBlocks(false);
+		scan1.setCaching(500);        
+		scan1.setCacheBlocks(false);
 		
 		// Mapper settings
 		TableMapReduceUtil.initTableMapperJob(
 				args[0],        // input HBase table name
-				scan,             // Scan instance to control CF and attribute selection
-				ReduceSideJoin_Mapper.class,   // mapper
+				scan1,             // Scan instance to control CF and attribute selection
+				ReduceSideJoin_MapperStage1.class,   // mapper
 				Text.class,         // mapper output key
 				KeyValueArrayWritable.class,  // mapper output value
-				job);
+				job1);
 
 		// Reducer settings
-		job.setReducerClass(ReduceSideJoin_Reducer.class);    // reducer class
-		job.setNumReduceTasks(1);    // at least one, adjust as required
-	
-		FileOutputFormat.setOutputPath(job, new Path("output/BSBMQ2"));
+		job1.setReducerClass(ReduceSideJoin_ReducerStage1.class);    // reducer class
+		job1.setNumReduceTasks(1);    // at least one, adjust as required
+		FileOutputFormat.setOutputPath(job1, new Path("output/BSBMQ2/Stage1"));
 
 		try {
-			System.exit(job.waitForCompletion(true) ? 0 : 1);
+			job1.waitForCompletion(true);
 		} catch (ClassNotFoundException e) { e.printStackTrace(); }
 		  catch (InterruptedException e) { e.printStackTrace();}
 
-		return job;
+		return job1;
 	}
+
+	/*
+	 * MapReduce Stage-2 Job
+	 * Pull attributes for nodes one degree from subject from Stage-1
+	 */
+public static Job startJob_Stage2(String[] args) throws IOException {
+		
+		// args[0] = hbase table name
+		// args[1] = zookeeper
+		
+		Configuration hConf = HBaseConfiguration.create(new Configuration());
+	    hConf.set("hbase.zookeeper.quorum", args[1]);
+	    hConf.set("scan.table", args[0]);
+	    hConf.set("hbase.zookeeper.property.clientPort", "2181");
+
+		/*
+		 * MapReduce Stage-1 Job
+		 * Retreive a list of subjects and their attributes
+		 */
+	    Scan scan2 = new Scan();		
+		Job job2 = new Job(hConf);
+		job2.setJobName("BSBM-Q2-ReduceSideJoin-Stage2");
+		job2.setJarByClass(ReduceSideJoinBSBMQ1.class);
+		// Change caching to speed up the scan
+		scan2.setCaching(500);        
+		scan2.setCacheBlocks(false);
+		
+		// Mapper settings
+		TableMapReduceUtil.initTableMapperJob(
+				args[0],        // input HBase table name
+				scan2,             // Scan instance to control CF and attribute selection
+				ReduceSideJoin_MapperStage1.class,   // mapper
+				Text.class,         // mapper output key
+				KeyValueArrayWritable.class,  // mapper output value
+				job2);
+
+		// Reducer settings
+		job2.setReducerClass(ReduceSideJoin_ReducerStage2.class);    // reducer class
+		job2.setNumReduceTasks(1);    // at least one, adjust as required
+
+		FileOutputFormat.setOutputPath(job2, new Path("output/BSBMQ2/Stage2"));
+
+		try {
+			job2.waitForCompletion(true);
+		} catch (ClassNotFoundException e) { e.printStackTrace(); }
+		  catch (InterruptedException e) { e.printStackTrace();}
+
+		return job2;
+	}
+ 
 	
-	
-	public static class ReduceSideJoin_Mapper extends TableMapper<Text, KeyValueArrayWritable> {
+	public static class ReduceSideJoin_MapperStage1 extends TableMapper<Text, KeyValueArrayWritable> {
 		
 		private Text text = new Text();
 
@@ -135,11 +189,14 @@ WHERE {
 }
 		   ---------------------------------------
 		 */
+			String rowKey = new String(value.getRow());
+			if (!rowKey.equals(ProductXYZ)) {
+				return;
+			}
 			List<KeyValue> entireRowAsList = value.list();
 			ArrayList<KeyValue> keyValuesToTransmit = new ArrayList<KeyValue>();
-			// Current row we're scanning = r
-			// Set "text" to equal the row key of r
-			text.set(new String(value.getRow()));
+
+			text.set(rowKey);
 
 			// PRODUCER
 			// TriplePattern-10
@@ -147,7 +204,8 @@ WHERE {
 			// Add the "table" tags
 			for (KeyValue kv : entireRowAsList) {
 				if (new String(kv.getQualifier()).equals("rdfs_label")) {
-					publisherRowList.add(SharedServices.addTagToKv(kv, SharedServices.Tag.R1));
+					// Tag this KeyValue as R1
+					publisherRowList.add(SharedServices.addTagToKv(kv, KeyValue.Type.Maximum));
 				}
 			}
 			// If row doesn't have a label, then we don't emit anything
@@ -156,7 +214,6 @@ WHERE {
 				keyValuesToTransmit.addAll(publisherRowList);
 			}
 			
-			
 			// PRODUCT
 			List<KeyValue> productRowList = new LinkedList<KeyValue>();
 			// Convert to array list
@@ -164,30 +221,64 @@ WHERE {
 			for (String col : ProjectedVariables) {
 				projectedVariablesList.add(col);
 			}
-			// Make sure this row contains all required columns
+			ArrayList<String> optionalVariablesList = new ArrayList<String>();
+			for (String col : OptionalProjectedVariables) {
+				optionalVariablesList.add(col);
+			}
+			
+			// Get the relevant columns from the table
 			for (KeyValue kv : entireRowAsList) {
+				String columnName = new String(kv.getQualifier());
+				// Make sure this row contains all required columns
 				for (int i = 0; i < projectedVariablesList.size(); i++) {
-					if (new String(kv.getQualifier()).equals(projectedVariablesList.get(i))
+					if (columnName.equals(projectedVariablesList.get(i))
 							|| new String(kv.getValue()).equals(projectedVariablesList.get(i))) {
-						productRowList.add(SharedServices.addTagToKv(kv, SharedServices.Tag.R2));
+						// Tag this keyvalue as "R2"
+						productRowList.add(SharedServices.addTagToKv(kv, KeyValue.Type.Minimum));
 						projectedVariablesList.remove(i);
 						break;
 					}
 				}
+				// Get any optional columns if they exist
+				for (int i = 0; i < optionalVariablesList.size(); i++) {
+					if (columnName.equals(optionalVariablesList.get(i))) {
+						productRowList.add(SharedServices.addTagToKv(kv, KeyValue.Type.Minimum));
+						optionalVariablesList.remove(i);
+						break;
+					}
+				}
 			}
-			// If the row is missing a required variable, go to next row
+			// If the row is missing a required variable, we're done here, go to next row
 			if (projectedVariablesList.size() > 0) {
 				return;
 			}
 			// Write the output product key-value
 			keyValuesToTransmit.addAll(productRowList);
-			
 			context.write(text, new KeyValueArrayWritable(SharedServices.listToArray(keyValuesToTransmit)));
-	    	
 		}
 	}
 	
-	public static class ReduceSideJoin_Reducer extends Reducer<Text, KeyValueArrayWritable, Text, Text>  {
+	public static class ReduceSideJoin_ReducerStage1 extends Reducer<Text, KeyValueArrayWritable, Text, Text>  {
+		
+		public void reduce(Text key, Iterable<KeyValueArrayWritable> values, Context context) throws IOException, InterruptedException {
+		      StringBuilder builder = new StringBuilder();
+		      for (KeyValueArrayWritable array : values) {
+		    	builder.append("\n");
+		        for (KeyValue kv : (KeyValue[]) array.toArray()) {
+		        	String[] triple = null;
+		        	try {
+						triple = SharedServices.keyValueToTripleString(kv);
+					} catch (ClassNotFoundException e) {
+						e.printStackTrace();
+					}
+		        	builder.append("\t" + triple[1] + "\t" + triple[2] +"\n");
+		        }
+		      }
+			context.write(key, new Text(builder.toString()));
+		}
+	}
+	
+	public static class ReduceSideJoin_ReducerStage2 extends Reducer<Text, KeyValueArrayWritable, Text, Text>  {
 		
 		public void reduce(Text key, Iterable<KeyValueArrayWritable> values, Context context) throws IOException, InterruptedException {
 		      StringBuilder builder = new StringBuilder();

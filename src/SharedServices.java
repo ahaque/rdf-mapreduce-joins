@@ -25,7 +25,6 @@ public class SharedServices {
 	
 	private static final HashMap<SharedServices.Tag, String> tagMap = new HashMap<SharedServices.Tag, String>() {
 		private static final long serialVersionUID = 5450689415960928404L;
-
 	{
 		put(SharedServices.Tag.R1, "r1");
 		put(SharedServices.Tag.R2, "r2");
@@ -146,15 +145,13 @@ public class SharedServices {
 	}
 	
 	// Takes a KeyValue as input, appends a tag, and outputs the new KeyValue
-	public static KeyValue addTagToKv(KeyValue kv, SharedServices.Tag tag) {
-		StringBuilder build = new StringBuilder();
-		build.append(new String(kv.getValue()));
-		build.append(SharedServices.tagMap.get(tag));
+	public static KeyValue addTagToKv(KeyValue kv, KeyValue.Type type) {
 		return new KeyValue(
 				kv.getRow(),
 				kv.getFamily(),
 				kv.getQualifier(),
 				kv.getTimestamp(),
-				Bytes.toBytes(build.toString()));
+				type,
+				kv.getValue());
 	}
 }
