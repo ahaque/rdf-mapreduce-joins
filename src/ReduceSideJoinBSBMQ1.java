@@ -33,9 +33,7 @@ public class ReduceSideJoinBSBMQ1 {
 	private static int x = 0;
 	private static String[] ProjectedVariables = {"rdfs_label"};
 	// End Query Information
-	
-	private static byte[] CF_AS_BYTES = "o".getBytes();
-	
+		
 	public static void main(String[] args) throws ClassNotFoundException, IOException, InterruptedException {
 
 		// Zookeeper quorum is usually the same as the HBase master node
@@ -114,25 +112,25 @@ public class ReduceSideJoinBSBMQ1 {
 		   ---------------------------------------
 		 */
 			// TriplePattern-2
-			byte[] item2 = value.getValue(CF_AS_BYTES, Bytes.toBytes(ProductType));
+			byte[] item2 = value.getValue(SharedServices.CF_AS_BYTES, Bytes.toBytes(ProductType));
 			if (item2 == null) { return; }
 			String item2_str = new String(item2);
 			if (!item2_str.equals("rdf_type")) { return; }
 			
 			// TriplePattern-3
-			byte[] item3 = value.getValue(CF_AS_BYTES, Bytes.toBytes(ProductFeature1));
+			byte[] item3 = value.getValue(SharedServices.CF_AS_BYTES, Bytes.toBytes(ProductFeature1));
 			if (item3 == null) { return; }
 			String item3_str = new String(item3);
 			if (!item3_str.equals("bsbm-voc_productFeature")) { return; }
 	
 			// TriplePattern-4
-			byte[] item4 = value.getValue(CF_AS_BYTES, Bytes.toBytes(ProductFeature2));
+			byte[] item4 = value.getValue(SharedServices.CF_AS_BYTES, Bytes.toBytes(ProductFeature2));
 			if (item4 == null) { return; }
 			String item4_str = new String(item4);
 		    if (!item4_str.equals("bsbm-voc_productFeature")) { return; }
 
 			// TriplePattern-6 - Since this is a literal, the predicate is the column name
-			byte[] item6 = value.getValue(CF_AS_BYTES, Bytes.toBytes("bsbm-voc_productPropertyNumeric1"));
+			byte[] item6 = value.getValue(SharedServices.CF_AS_BYTES, Bytes.toBytes("bsbm-voc_productPropertyNumeric1"));
 			if (item6 == null) { return; }
 			int number6 = ByteBuffer.wrap(item6).getInt();
 			if (number6 <= x) { return; }

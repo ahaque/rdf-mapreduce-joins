@@ -18,15 +18,14 @@ import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.mapreduce.TableMapReduceUtil;
 import org.apache.hadoop.hbase.mapreduce.TableMapper;
-import org.apache.hadoop.hbase.regionserver.StoreFile.BloomType;
-import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.io.Text;
-import org.apache.hadoop.mapred.JobClient;
-import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Reducer;
+import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
+import org.apache.hadoop.mapreduce.lib.input.SequenceFileInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
-
+import org.apache.hadoop.mapreduce.lib.output.SequenceFileOutputFormat;
+import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 
 public class ReduceSideJoinBSBMQ2 {
 	
@@ -48,9 +47,7 @@ public class ReduceSideJoinBSBMQ2 {
 		"bsbm-voc_productPropertyNumeric4"
 	};
 	// End Query Information
-	
-	private static byte[] CF_AS_BYTES = "o".getBytes();
-	
+		
 	public static void main(String[] args) throws ClassNotFoundException, IOException, InterruptedException {
 
 		// Zookeeper quorum is usually the same as the HBase master node
@@ -61,45 +58,48 @@ public class ReduceSideJoinBSBMQ2 {
 			System.out.println("  " + USAGE_MSG);
 			System.exit(0);
 		}
-				
-		startJob_Stage1(args);
-		startJob_Stage2(args);
-	}
-	
-	public static Job startJob_Stage1(String[] args) throws IOException {
-		
-		// args[0] = hbase table name
-		// args[1] = zookeeper
 		
 		Configuration hConf = HBaseConfiguration.create(new Configuration());
 	    hConf.set("hbase.zookeeper.quorum", args[1]);
 	    hConf.set("scan.table", args[0]);
 	    hConf.set("hbase.zookeeper.property.clientPort", "2181");
+				
+		startJob_Stage1(args, hConf);
+		startJob_Stage2(args, hConf);
+	}
+	
+	// MapReduce Stage-1 Job
+	public static Job startJob_Stage1(String[] args, Configuration hConf) throws IOException {
+		
+		// args[0] = hbase table name
+		// args[1] = zookeeper
 
 		/*
 		 * MapReduce Stage-1 Job
-		 * Retreive a list of subjects and their attributes
+		 * Retrieve a list of subjects and their attributes
 		 */
 	    Scan scan1 = new Scan();		
 		Job job1 = new Job(hConf);
 		job1.setJobName("BSBM-Q2-ReduceSideJoin-Stage1");
-		job1.setJarByClass(ReduceSideJoinBSBMQ1.class);
-		// Change caching to speed up the scan
+		job1.setJarByClass(ReduceSideJoinBSBMQ2.class);
+		// Change caching and number of time stamps to speed up the scan
 		scan1.setCaching(500);        
+		scan1.setMaxVersions(200);
 		scan1.setCacheBlocks(false);
 		
 		// Mapper settings
 		TableMapReduceUtil.initTableMapperJob(
-				args[0],        // input HBase table name
-				scan1,             // Scan instance to control CF and attribute selection
-				ReduceSideJoin_MapperStage1.class,   // mapper
-				Text.class,         // mapper output key
-				KeyValueArrayWritable.class,  // mapper output value
+				args[0],		// input HBase table name
+				scan1,			// Scan instance to control CF and attribute selection
+				ReduceSideJoin_MapperStage1.class,	// mapper class
+				Text.class,		// mapper output key
+				KeyValueArrayWritable.class,  		// mapper output value
 				job1);
 
 		// Reducer settings
-		job1.setReducerClass(ReduceSideJoin_ReducerStage1.class);    // reducer class
-		job1.setNumReduceTasks(1);    // at least one, adjust as required
+		job1.setReducerClass(ReduceSideJoin_ReducerStage1.class);   
+		job1.setOutputFormatClass(SequenceFileOutputFormat.class);
+		//job1.setNumReduceTasks(1);  // Uncomment this if running into problems on 2+ node cluster
 		FileOutputFormat.setOutputPath(job1, new Path("output/BSBMQ2/Stage1"));
 
 		try {
@@ -110,45 +110,20 @@ public class ReduceSideJoinBSBMQ2 {
 		return job1;
 	}
 
-	/*
-	 * MapReduce Stage-2 Job
-	 * Pull attributes for nodes one degree from subject from Stage-1
-	 */
-public static Job startJob_Stage2(String[] args) throws IOException {
-		
-		// args[0] = hbase table name
-		// args[1] = zookeeper
-		
-		Configuration hConf = HBaseConfiguration.create(new Configuration());
-	    hConf.set("hbase.zookeeper.quorum", args[1]);
-	    hConf.set("scan.table", args[0]);
-	    hConf.set("hbase.zookeeper.property.clientPort", "2181");
+	// MapReduce Stage-2 Job
+	public static Job startJob_Stage2(String[] args, Configuration hConf) throws IOException {
 
-		/*
-		 * MapReduce Stage-1 Job
-		 * Retreive a list of subjects and their attributes
-		 */
-	    Scan scan2 = new Scan();		
-		Job job2 = new Job(hConf);
+		Job job2 = new Job(new Configuration());
 		job2.setJobName("BSBM-Q2-ReduceSideJoin-Stage2");
-		job2.setJarByClass(ReduceSideJoinBSBMQ1.class);
-		// Change caching to speed up the scan
-		scan2.setCaching(500);        
-		scan2.setCacheBlocks(false);
+		job2.setJarByClass(ReduceSideJoinBSBMQ2.class);
 		
-		// Mapper settings
-		TableMapReduceUtil.initTableMapperJob(
-				args[0],        // input HBase table name
-				scan2,             // Scan instance to control CF and attribute selection
-				ReduceSideJoin_MapperStage1.class,   // mapper
-				Text.class,         // mapper output key
-				KeyValueArrayWritable.class,  // mapper output value
-				job2);
-
 		// Reducer settings
-		job2.setReducerClass(ReduceSideJoin_ReducerStage2.class);    // reducer class
-		job2.setNumReduceTasks(1);    // at least one, adjust as required
-
+		job2.setReducerClass(ReduceSideJoin_ReducerStage2.class);    
+		job2.setNumReduceTasks(1);    
+		// The output from Stage-1 (input for stage 2) is a key-value (subject-row) format
+		job2.setInputFormatClass(SequenceFileInputFormat.class);
+		job2.setOutputFormatClass(TextOutputFormat.class);
+		FileInputFormat.addInputPath(job2, new Path("output/BSBMQ2/Stage1"));
 		FileOutputFormat.setOutputPath(job2, new Path("output/BSBMQ2/Stage2"));
 
 		try {
@@ -258,23 +233,55 @@ WHERE {
 		}
 	}
 	
-	public static class ReduceSideJoin_ReducerStage1 extends Reducer<Text, KeyValueArrayWritable, Text, Text>  {
+	public static class ReduceSideJoin_MapperStage2 extends TableMapper<Text, KeyValueArrayWritable> {
 		
+		private Text text = new Text();
+
+		public void map(Text inputKey, KeyValueArrayWritable inputValue, Context context) throws InterruptedException, IOException {
+		/* BERLIN SPARQL BENHCMARK QUERY 2
+		   ----------------------------------------
+SELECT
+	?label ?comment ?producer ?productFeature ?propertyTextual1 ?propertyTextual2 ?propertyTextual3
+ 	?propertyNumeric1 ?propertyNumeric2 ?propertyTextual4 ?propertyTextual5 ?propertyNumeric4 
+WHERE {
+	[TriplePattern-01]	%ProductXYZ% rdfs:label ?label .
+	[TriplePattern-02]	%ProductXYZ% rdfs:comment ?comment .
+	[TriplePattern-03]	%ProductXYZ% bsbm:productPropertyTextual1 ?propertyTextual1 .
+	[TriplePattern-04]	%ProductXYZ% bsbm:productPropertyTextual2 ?propertyTextual2 .
+	[TriplePattern-05]	%ProductXYZ% bsbm:productPropertyTextual3 ?propertyTextual3 .
+	[TriplePattern-06]	%ProductXYZ% bsbm:productPropertyNumeric1 ?propertyNumeric1 .
+	[TriplePattern-07]	%ProductXYZ% bsbm:productPropertyNumeric2 ?propertyNumeric2 .
+	[TriplePattern-08]	%ProductXYZ% dc:publisher ?p . 
+	[TriplePattern-09]	%ProductXYZ% bsbm:producer ?p .
+	[TriplePattern-10]	?p rdfs:label ?producer .
+	[TriplePattern-11]	%ProductXYZ% bsbm:productFeature ?f .
+	[TriplePattern-12]	?f rdfs:label ?productFeature .
+	[TriplePattern-13]	OPTIONAL { %ProductXYZ% bsbm:productPropertyTextual4 ?propertyTextual4 }
+	[TriplePattern-14]	OPTIONAL { %ProductXYZ% bsbm:productPropertyTextual5 ?propertyTextual5 }
+	[TriplePattern-15]	OPTIONAL { %ProductXYZ% bsbm:productPropertyNumeric4 ?propertyNumeric4 }
+}
+		   ---------------------------------------
+		 */
+
+			context.write(inputKey, inputValue);
+		}
+	}
+	
+	
+	// Output format:
+	// Key: HBase Row Key (subject)
+	// Value: All projected attributes for the row key (subject)
+	public static class ReduceSideJoin_ReducerStage1 extends Reducer<Text, KeyValueArrayWritable, Text, KeyValueArrayWritable>  {
+
 		public void reduce(Text key, Iterable<KeyValueArrayWritable> values, Context context) throws IOException, InterruptedException {
-		      StringBuilder builder = new StringBuilder();
-		      for (KeyValueArrayWritable array : values) {
-		    	builder.append("\n");
-		        for (KeyValue kv : (KeyValue[]) array.toArray()) {
-		        	String[] triple = null;
-		        	try {
-						triple = SharedServices.keyValueToTripleString(kv);
-					} catch (ClassNotFoundException e) {
-						e.printStackTrace();
-					}
-		        	builder.append("\t" + triple[1] + "\t" + triple[2] +"\n");
-		        }
-		      }
-			context.write(key, new Text(builder.toString()));
+		    // Combine all KeyValueArrayWritables that arrive at this reducer node into a single array
+			List<KeyValue> combinedArray = new LinkedList<KeyValue>();
+			for (KeyValueArrayWritable array: values) {
+				for (KeyValue kv : (KeyValue[]) array.toArray()) {
+					combinedArray.add(kv);
+				}
+			}
+			context.write(key, new KeyValueArrayWritable(SharedServices.listToArray(combinedArray)));
 		}
 	}
 	

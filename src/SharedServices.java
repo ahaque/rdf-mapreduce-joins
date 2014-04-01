@@ -4,7 +4,6 @@ import java.util.HashMap;
 import java.util.List;
 
 import org.apache.hadoop.hbase.KeyValue;
-import org.apache.hadoop.hbase.util.Bytes;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
 
@@ -23,6 +22,8 @@ public class SharedServices {
 		R1, R2, R3, R4, R5
 	}
 	
+	public static byte[] CF_AS_BYTES = "o".getBytes();
+
 	private static final HashMap<SharedServices.Tag, String> tagMap = new HashMap<SharedServices.Tag, String>() {
 		private static final long serialVersionUID = 5450689415960928404L;
 	{
