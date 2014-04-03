@@ -23,16 +23,10 @@ public class SharedServices {
 	}
 	
 	public static byte[] CF_AS_BYTES = "o".getBytes();
-
-	private static final HashMap<SharedServices.Tag, String> tagMap = new HashMap<SharedServices.Tag, String>() {
-		private static final long serialVersionUID = 5450689415960928404L;
-	{
-		put(SharedServices.Tag.R1, "r1");
-		put(SharedServices.Tag.R2, "r2");
-		put(SharedServices.Tag.R3, "r3");
-		put(SharedServices.Tag.R4, "r4");
-		put(SharedServices.Tag.R5, "r5");
-	}};
+	// Separates KEY from VALUE in intermediate MapReduce files
+	public static char KEY_VALUE_DELIMITER = (char) 126;
+	// Separates qualifier, timestamp, etc. in intermediate MapReduce files
+	public static char SUBVALUE_DELIMITER = (char) 127;
 	
 	// Literal type mapping
 	private static final HashMap<String, SharedServices.Type> literalTypeMap = new HashMap<String, SharedServices.Type>() {
@@ -154,5 +148,45 @@ public class SharedServices {
 				kv.getTimestamp(),
 				type,
 				kv.getValue());
+	}
+	
+	// Takes a KeyValue and creates a single-line String in HBase key:family:qualifier:timestamp:value format
+	public static String keyValueToString(KeyValue kv) {
+		StringBuilder builder = new StringBuilder();
+		builder.append(new String(kv.getRow()));
+    	builder.append(SharedServices.KEY_VALUE_DELIMITER);
+    	builder.append(new String(kv.getRow()));
+    	builder.append(SharedServices.SUBVALUE_DELIMITER);
+    	builder.append(new String(kv.getFamily()));
+    	builder.append(SharedServices.SUBVALUE_DELIMITER);
+    	builder.append(new String(kv.getQualifier()));
+    	builder.append(SharedServices.SUBVALUE_DELIMITER);
+    	builder.append(kv.getTimestamp());
+    	builder.append(SharedServices.SUBVALUE_DELIMITER);
+    	builder.append(new String(kv.getValue()));
+    	return builder.toString();
+	}
+	
+	public static KeyValue stringToKeyValue(String line) {
+		StringBuilder build = new StringBuilder();
+		String[] tuple = new String[5];
+		int currentIndex = 0;
+		for (int i = 0; i < line.length(); i++) {
+			char c = line.charAt(i);
+			if (c == SharedServices.SUBVALUE_DELIMITER) {
+				tuple[currentIndex] = build.toString();
+				currentIndex++;
+				build.setLength(0);
+			} else {
+				build.append(c);
+			}
+		}
+		return new KeyValue(
+				tuple[0].getBytes(),
+				tuple[1].getBytes(),
+				tuple[2].getBytes(),
+				Long.parseLong(tuple[3]),
+				tuple[4].getBytes()
+				);
 	}
 }

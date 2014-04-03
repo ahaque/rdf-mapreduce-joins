@@ -20,6 +20,7 @@ import org.apache.hadoop.hbase.mapreduce.TableMapReduceUtil;
 import org.apache.hadoop.hbase.mapreduce.TableMapper;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
+import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
 import org.apache.hadoop.mapreduce.lib.input.KeyValueTextInputFormat;
@@ -48,11 +49,6 @@ public class ReduceSideJoinBSBMQ2 {
 		"bsbm-voc_productPropertyNumeric4"
 	};
 	// End Query Information
-	
-	// Separates KEY from VALUE in intermediate MapReduce files
-	private static char KEY_VALUE_DELIMITER = (char) 30;
-	// Separates qualifier, timestamp, etc. in intermediate MapReduce files
-	private static char SUBVALUE_DELIMITER = (char) 31;
 		
 	public static void main(String[] args) throws ClassNotFoundException, IOException, InterruptedException {
 
@@ -71,7 +67,7 @@ public class ReduceSideJoinBSBMQ2 {
 	    hConf.set("hbase.zookeeper.property.clientPort", "2181");
 				
 		startJob_Stage1(args, hConf);
-		//startJob_Stage2(args, hConf);
+		startJob_Stage2(args, hConf);
 	}
 	
 	// MapReduce Stage-1 Job
@@ -118,13 +114,15 @@ public class ReduceSideJoinBSBMQ2 {
 
 	// MapReduce Stage-2 Job
 	public static Job startJob_Stage2(String[] args, Configuration hConf) throws IOException {
-
-		Job job2 = new Job(new Configuration());
+		
+		Configuration config = new Configuration();
+		config.set("mapreduce.input.keyvaluelinerecordreader.key.value.separator", ""+ SharedServices.KEY_VALUE_DELIMITER);		
+		Job job2 = new Job(config);
 		job2.setJobName("BSBM-Q2-ReduceSideJoin-Stage2");
 		job2.setJarByClass(ReduceSideJoinBSBMQ2.class);
 		
-		// Reducer settings
-		job2.setReducerClass(ReduceSideJoin_ReducerStage2.class);    
+		job2.setMapperClass(ReduceSideJoin_MapperStage2.class);
+		job2.setReducerClass(ReduceSideJoin_ReducerStage2.class); 
 		job2.setNumReduceTasks(1);    
 		// The output from Stage-1 (input for stage 2) is a key-value (subject-row) format
 		job2.setInputFormatClass(KeyValueTextInputFormat.class);
@@ -239,11 +237,11 @@ WHERE {
 		}
 	}
 	
-	public static class ReduceSideJoin_MapperStage2 extends TableMapper<Text, KeyValueArrayWritable> {
+	public static class ReduceSideJoin_MapperStage2 extends Mapper<Text, Text, Text, KeyValueArrayWritable> {
 		
 		private Text text = new Text();
 
-		public void map(Text inputKey, KeyValueArrayWritable inputValue, Context context) throws InterruptedException, IOException {
+		public void map(Text key, Text value, Context context) throws InterruptedException, IOException {
 		/* BERLIN SPARQL BENHCMARK QUERY 2
 		   ----------------------------------------
 SELECT
@@ -268,8 +266,13 @@ WHERE {
 }
 		   ---------------------------------------
 		 */
-
-			context.write(inputKey, inputValue);
+			if (value == null || value.toString().length() == 0) {
+				return;
+			}
+			KeyValue kv = SharedServices.stringToKeyValue(value.toString());
+			KeyValue[] kvArray = new KeyValue[1];
+			kvArray[0] = kv;
+			context.write(key, new KeyValueArrayWritable(kvArray));
 		}
 	}
 	
@@ -281,18 +284,10 @@ WHERE {
 
 		public void reduce(Text key, Iterable<KeyValueArrayWritable> values, Context context) throws IOException, InterruptedException {
 			StringBuilder builder = new StringBuilder();
+			builder.append("\n");
 			for (KeyValueArrayWritable array : values) {
 		        for (KeyValue kv : (KeyValue[]) array.toArray()) {
-		        	builder.append(new String(kv.getRow()));
-		        	builder.append(KEY_VALUE_DELIMITER);
-		        	builder.append(SUBVALUE_DELIMITER);
-		        	builder.append(new String(kv.getFamily()));
-		        	builder.append(SUBVALUE_DELIMITER);
-		        	builder.append(new String(kv.getQualifier()));
-		        	builder.append(SUBVALUE_DELIMITER);
-		        	builder.append(kv.getTimestamp());
-		        	builder.append(SUBVALUE_DELIMITER);
-		        	builder.append(new String(kv.getValue()));
+		        	builder.append(SharedServices.keyValueToString(kv));
 		        	builder.append("\n");
 		        }
 		      }
