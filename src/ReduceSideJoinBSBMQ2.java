@@ -22,6 +22,7 @@ import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
+import org.apache.hadoop.mapreduce.lib.input.KeyValueTextInputFormat;
 import org.apache.hadoop.mapreduce.lib.input.SequenceFileInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.mapreduce.lib.output.SequenceFileOutputFormat;
@@ -47,6 +48,11 @@ public class ReduceSideJoinBSBMQ2 {
 		"bsbm-voc_productPropertyNumeric4"
 	};
 	// End Query Information
+	
+	// Separates KEY from VALUE in intermediate MapReduce files
+	private static char KEY_VALUE_DELIMITER = (char) 30;
+	// Separates qualifier, timestamp, etc. in intermediate MapReduce files
+	private static char SUBVALUE_DELIMITER = (char) 31;
 		
 	public static void main(String[] args) throws ClassNotFoundException, IOException, InterruptedException {
 
@@ -65,7 +71,7 @@ public class ReduceSideJoinBSBMQ2 {
 	    hConf.set("hbase.zookeeper.property.clientPort", "2181");
 				
 		startJob_Stage1(args, hConf);
-		startJob_Stage2(args, hConf);
+		//startJob_Stage2(args, hConf);
 	}
 	
 	// MapReduce Stage-1 Job
@@ -98,7 +104,7 @@ public class ReduceSideJoinBSBMQ2 {
 
 		// Reducer settings
 		job1.setReducerClass(ReduceSideJoin_ReducerStage1.class);   
-		job1.setOutputFormatClass(SequenceFileOutputFormat.class);
+		job1.setOutputFormatClass(TextOutputFormat.class);
 		//job1.setNumReduceTasks(1);  // Uncomment this if running into problems on 2+ node cluster
 		FileOutputFormat.setOutputPath(job1, new Path("output/BSBMQ2/Stage1"));
 
@@ -121,7 +127,7 @@ public class ReduceSideJoinBSBMQ2 {
 		job2.setReducerClass(ReduceSideJoin_ReducerStage2.class);    
 		job2.setNumReduceTasks(1);    
 		// The output from Stage-1 (input for stage 2) is a key-value (subject-row) format
-		job2.setInputFormatClass(SequenceFileInputFormat.class);
+		job2.setInputFormatClass(KeyValueTextInputFormat.class);
 		job2.setOutputFormatClass(TextOutputFormat.class);
 		FileInputFormat.addInputPath(job2, new Path("output/BSBMQ2/Stage1"));
 		FileOutputFormat.setOutputPath(job2, new Path("output/BSBMQ2/Stage2"));
@@ -271,17 +277,26 @@ WHERE {
 	// Output format:
 	// Key: HBase Row Key (subject)
 	// Value: All projected attributes for the row key (subject)
-	public static class ReduceSideJoin_ReducerStage1 extends Reducer<Text, KeyValueArrayWritable, Text, KeyValueArrayWritable>  {
+	public static class ReduceSideJoin_ReducerStage1 extends Reducer<Text, KeyValueArrayWritable, Text, Text>  {
 
 		public void reduce(Text key, Iterable<KeyValueArrayWritable> values, Context context) throws IOException, InterruptedException {
-		    // Combine all KeyValueArrayWritables that arrive at this reducer node into a single array
-			List<KeyValue> combinedArray = new LinkedList<KeyValue>();
-			for (KeyValueArrayWritable array: values) {
-				for (KeyValue kv : (KeyValue[]) array.toArray()) {
-					combinedArray.add(kv);
-				}
-			}
-			context.write(key, new KeyValueArrayWritable(SharedServices.listToArray(combinedArray)));
+			StringBuilder builder = new StringBuilder();
+			for (KeyValueArrayWritable array : values) {
+		        for (KeyValue kv : (KeyValue[]) array.toArray()) {
+		        	builder.append(new String(kv.getRow()));
+		        	builder.append(KEY_VALUE_DELIMITER);
+		        	builder.append(SUBVALUE_DELIMITER);
+		        	builder.append(new String(kv.getFamily()));
+		        	builder.append(SUBVALUE_DELIMITER);
+		        	builder.append(new String(kv.getQualifier()));
+		        	builder.append(SUBVALUE_DELIMITER);
+		        	builder.append(kv.getTimestamp());
+		        	builder.append(SUBVALUE_DELIMITER);
+		        	builder.append(new String(kv.getValue()));
+		        	builder.append("\n");
+		        }
+		      }
+			context.write(key, new Text(builder.toString()));
 		}
 	}
 	
