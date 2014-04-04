@@ -77,7 +77,7 @@ public class ReduceSideJoinBSBMQ1 {
 				job);
 
 		// Reducer settings
-		job.setReducerClass(ReduceSideJoin_Reducer.class);    // reducer class
+		job.setReducerClass(SharedServices.ReduceSideJoin_Reducer.class);    // reducer class
 		job.setNumReduceTasks(1);    // at least one, adjust as required
 	
 		FileOutputFormat.setOutputPath(job, new Path("output/BSBMQ1"));
@@ -154,26 +154,5 @@ public class ReduceSideJoinBSBMQ1 {
 			}
 	    	context.write(text, new KeyValueArrayWritable(entireRow));
 		}
-	}
-	
-	public static class ReduceSideJoin_Reducer extends Reducer<Text, KeyValueArrayWritable, Text, Text>  {
-		
-		public void reduce(Text key, Iterable<KeyValueArrayWritable> values, Context context) throws IOException, InterruptedException {
-		      StringBuilder builder = new StringBuilder();
-		      for (KeyValueArrayWritable array : values) {
-		    	builder.append("\n");
-		        for (KeyValue kv : (KeyValue[]) array.toArray()) {
-		        	String[] triple = null;
-		        	try {
-						triple = SharedServices.keyValueToTripleString(kv);
-					} catch (ClassNotFoundException e) {
-						e.printStackTrace();
-					}
-		        	builder.append("\t" + triple[1] + "\t" + triple[2] +"\n");
-		        }
-		      }
-			context.write(key, new Text(builder.toString()));
-		}
-	}
-		    
+	}		    
 }

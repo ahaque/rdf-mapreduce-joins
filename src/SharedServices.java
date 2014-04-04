@@ -6,6 +6,9 @@ import java.util.List;
 
 import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.util.Bytes;
+import org.apache.hadoop.io.Text;
+import org.apache.hadoop.mapreduce.Reducer;
+import org.apache.hadoop.mapreduce.Reducer.Context;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
 
@@ -58,6 +61,29 @@ public class SharedServices {
 		put("bsbm-voc_deliveryDays", SharedServices.Type.INT);
 		put("bsbm-voc_reviewDate", SharedServices.Type.DATE);
 	}};
+	
+	/*
+	 * Generic Reducer class that simply outputs the key-values in a human-readable format
+	 */
+	public static class ReduceSideJoin_Reducer extends Reducer<Text, KeyValueArrayWritable, Text, Text>  {
+		
+		public void reduce(Text key, Iterable<KeyValueArrayWritable> values, Context context) throws IOException, InterruptedException {
+		      StringBuilder builder = new StringBuilder();
+		      for (KeyValueArrayWritable array : values) {
+		    	builder.append("\n");
+		        for (KeyValue kv : (KeyValue[]) array.toArray()) {
+		        	String[] triple = null;
+		        	try {
+						triple = SharedServices.keyValueToTripleString(kv);
+					} catch (ClassNotFoundException e) {
+						e.printStackTrace();
+					}
+		        	builder.append("\t" + triple[1] + "\t" + triple[2] +"\n");
+		        }
+		      }
+			context.write(key, new Text(builder.toString()));
+		}
+	}
 	
 	/*
 	 * This method takes a KeyValue as an input and will return the String

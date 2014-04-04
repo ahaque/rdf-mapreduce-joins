@@ -125,7 +125,7 @@ public class ReduceSideJoinBSBMQ2 {
 		job2.setMapOutputKeyClass(Text.class);
 		job2.setMapOutputValueClass(KeyValueArrayWritable.class);
 		
-		job2.setReducerClass(ReduceSideJoin_ReducerStage2.class); 
+		job2.setReducerClass(SharedServices.ReduceSideJoin_Reducer.class); 
 		job2.setOutputKeyClass(Text.class);
 		job2.setOutputValueClass(Text.class);
 		
@@ -299,26 +299,5 @@ WHERE {
 		      }
 			context.write(key, new Text(builder.toString()));
 		}
-	}
-	
-	public static class ReduceSideJoin_ReducerStage2 extends Reducer<Text, KeyValueArrayWritable, Text, Text>  {
-		
-		public void reduce(Text key, Iterable<KeyValueArrayWritable> values, Context context) throws IOException, InterruptedException {
-		      StringBuilder builder = new StringBuilder();
-		      for (KeyValueArrayWritable array : values) {
-		    	builder.append("\n");
-		        for (KeyValue kv : (KeyValue[]) array.toArray()) {
-		        	String[] triple = null;
-		        	try {
-						triple = SharedServices.keyValueToTripleString(kv);
-					} catch (ClassNotFoundException e) {
-						e.printStackTrace();
-					}
-		        	builder.append("\t" + triple[1] + "\t" + triple[2] +"\n");
-		        }
-		      }
-			context.write(key, new Text(builder.toString()));
-		}
-	}
-		    
+	}	    
 }
