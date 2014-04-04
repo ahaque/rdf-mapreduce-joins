@@ -27,13 +27,9 @@ import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 public class ReduceSideJoinBSBMQ11 {
 	
 	// Begin Query Information
-	private static String ProductType = "bsbm-inst_ProductType230";
-	private static String ProductFeature1 = "bsbm-inst_ProductFeature39";
-	private static String ProductFeature2 = "bsbm-inst_ProductFeature41";
-	private static String ProductFeature3 = "bsbm-inst_ProductFeature41";
-	private static int x = 0;
-	private static int y = 5000;
-	private static String[] ProjectedVariables = {"rdfs_label", "bsbm-voc_productPropertyTextual1"};
+	private static String OfferXYZ = "";
+	// ProjectedVariables can be a specific column or "ALL"
+	private static String[] ProjectedVariables = {"ALL"};
 	// End Query Information
 	
 	private static byte[] CF_AS_BYTES = "o".getBytes();
@@ -99,114 +95,43 @@ public class ReduceSideJoinBSBMQ11 {
 	public static class ReduceSideJoin_Mapper extends TableMapper<Text, KeyValueArrayWritable> {
 		
 		private Text text = new Text();
+		
+		private boolean isPartOfFirstUnion(Result value) {
+			if (!(new String(value.getRow()).equals(OfferXYZ))) {
+				return false;
+			}
+			return true;
+		}
 
 		public void map(ImmutableBytesWritable row, Result value, Context context) throws InterruptedException, IOException {
-		/* BERLIN SPARQL BENHCMARK QUERY 3
+			text.set(new String(value.getRow()));
+		/* BERLIN SPARQL BENHCMARK QUERY 11
 		   ----------------------------------------
-		SELECT DISTINCT ?product ?label ?propertyTextual
-		WHERE {
-			{ 
-			[TP-01]	?product rdfs:label ?label .
-			[TP-02]	?product rdf:type %ProductType% .
-			[TP-03]	?product bsbm:productFeature %ProductFeature1% .
-			[TP-04]	?product bsbm:productFeature %ProductFeature2% .
-			[TP-05]	?product bsbm:productPropertyTextual1 ?propertyTextual .
-			[TP-06]	?product bsbm:productPropertyNumeric1 ?p1 .
-			[TP-07]	FILTER ( ?p1 > %x% )
-			} UNION {
-			[TP-08]	?product rdfs:label ?label .
-			[TP-09]	?product rdf:type %ProductType% .
-			[TP-10]	?product bsbm:productFeature %ProductFeature1% .
-			[TP-11]	?product bsbm:productFeature %ProductFeature3% .
-			[TP-12]	?product bsbm:productPropertyTextual1 ?propertyTextual .
-			[TP-13]	?product bsbm:productPropertyNumeric2 ?p2 .
-			[TP-14]	FILTER ( ?p2> %y% ) 
-			} 
-		}
-		ORDER BY ?label
-		OFFSET 5
-		LIMIT 10
+			SELECT ?property ?hasValue ?isValueOf
+			WHERE {
+			[TP-01]	{ %OfferXYZ% ?property ?hasValue }
+					UNION
+			[TP-02]	{ ?isValueOf ?property %OfferXYZ% }
+			}
 		   ---------------------------------------
 		 */
-			// Triple patterns within both sides of union
-			// TP-02
-			byte[] item2 = value.getValue(CF_AS_BYTES, Bytes.toBytes(ProductType));
-			if (item2 == null) { return; }
-			String item2_str = new String(item2);
-			if (!item2_str.equals("rdf_type")) { return; }
-			
-			// TP-03
-			byte[] item3 = value.getValue(CF_AS_BYTES, Bytes.toBytes(ProductFeature1));
-			if (item3 == null) { return; }
-			String item3_str = new String(item3);
-			if (!item3_str.equals("bsbm-voc_productFeature")) { return; }
-
-			if (!isPartOfFirstUnion(value) && !isPartOfSecondUnion(value)) {
-				return;
+			// TP-01
+			if (isPartOfFirstUnion(value)) {
+				List<KeyValue> entireRowAsList = value.list();
+		    	context.write(text, new KeyValueArrayWritable((KeyValue[]) entireRowAsList.toArray()));
+		    	return;
 			}
-			
-			// Subject (Mapper Output: Key)
-			text.set(new String(value.getRow()));
-			
-			// HBase row for that subject (Mapper Output: Value)
-			List<KeyValue> entireRowAsList = value.list();
-			KeyValue[] entireRow = new KeyValue[ProjectedVariables.length];
-			
-			int index = 0;
-			for (int i = 0; i < entireRowAsList.size(); i++) {
-				// Reduce data sent across network by writing only columns that we know will be used
-				for (String project : ProjectedVariables) {
-					if (new String(entireRowAsList.get(i).getQualifier()).equals(project)) {
-						entireRow[index] = entireRowAsList.get(i);
-						index++;
+			// TP-02
+			else {
+				List<KeyValue> entireRowAsList = value.list();
+				// Check all cells and see if the OFFER is part of the value
+				for (KeyValue kv : entireRowAsList) {
+					if (!(new String(kv.getValue()).equals(OfferXYZ))) {
+						entireRowAsList.remove(kv);
 					}
 				}
+		    	context.write(text, new KeyValueArrayWritable((KeyValue[]) entireRowAsList.toArray()));
 			}
-	    	context.write(text, new KeyValueArrayWritable(entireRow));
 		}
-		
-		public boolean isPartOfFirstUnion(Result value) {
-			/* FIRST UNION
-			[TP-04]	?product bsbm:productFeature %ProductFeature2% .
-			[TP-06]	?product bsbm:productPropertyNumeric1 ?p1 .
-			[TP-07]	FILTER ( ?p1 > %x% )
-			 */
-			// TP-04
-			byte[] item4 = value.getValue(CF_AS_BYTES, Bytes.toBytes(ProductFeature2));
-			if (item4 == null) { return false; }
-			String item4_str = new String(item4);
-			if (!item4_str.equals("bsbm-voc_productFeature")) { return false; }
-			
-			// TP-06-07
-			byte[] item6 = value.getValue(CF_AS_BYTES, Bytes.toBytes("bsbm-voc_productPropertyNumeric1"));
-			if (item6 == null) { return false; }
-			int number6 = ByteBuffer.wrap(item6).getInt();
-			if (number6 <= x) { return false; }
-			
-			return true;
-		}
-		
-		public boolean isPartOfSecondUnion(Result value) {
-			/* FIRST UNION
-			[TP-11]	?product bsbm:productFeature %ProductFeature3% .
-			[TP-13]	?product bsbm:productPropertyNumeric2 ?p2 .
-			[TP-14]	FILTER ( ?p2> %y% ) 
-			 */
-			// TP-11
-			byte[] item4 = value.getValue(CF_AS_BYTES, Bytes.toBytes(ProductFeature3));
-			if (item4 == null) { return false; }
-			String item4_str = new String(item4);
-			if (!item4_str.equals("bsbm-voc_productFeature")) { return false; }
-			
-			// TP-13-14
-			byte[] item6 = value.getValue(CF_AS_BYTES, Bytes.toBytes("bsbm-voc_productPropertyNumeric2"));
-			if (item6 == null) { return false; }
-			int number6 = ByteBuffer.wrap(item6).getInt();
-			if (number6 <= y) { return false; }
-			
-			return true;
-		}
-		
-	}
-		    
+	}	    
 }
