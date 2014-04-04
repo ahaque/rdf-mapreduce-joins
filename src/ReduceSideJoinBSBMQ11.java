@@ -5,7 +5,6 @@
  */
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.util.List;
 
 import org.apache.hadoop.conf.Configuration;
@@ -17,10 +16,8 @@ import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.mapreduce.TableMapReduceUtil;
 import org.apache.hadoop.hbase.mapreduce.TableMapper;
-import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
-import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 
 
@@ -28,12 +25,8 @@ public class ReduceSideJoinBSBMQ11 {
 	
 	// Begin Query Information
 	private static String OfferXYZ = "";
-	// ProjectedVariables can be a specific column or "ALL"
-	private static String[] ProjectedVariables = {"ALL"};
 	// End Query Information
-	
-	private static byte[] CF_AS_BYTES = "o".getBytes();
-	
+		
 	public static void main(String[] args) throws ClassNotFoundException, IOException, InterruptedException {
 
 		// Zookeeper quorum is usually the same as the HBase master node
