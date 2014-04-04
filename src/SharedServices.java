@@ -1,5 +1,11 @@
+
+/**
+ * Shared functions and variables for the Reduce Side Join for BSBM
+ * @author Albert Haque
+ * @date Apriil 2014
+ */
+
 import java.io.IOException;
-import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.List;
@@ -8,7 +14,6 @@ import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Reducer;
-import org.apache.hadoop.mapreduce.Reducer.Context;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
 
@@ -85,7 +90,7 @@ public class SharedServices {
 		}
 	}
 	
-	/*
+	/**
 	 * This method takes a KeyValue as an input and will return the String
 	 * concatenation of the correct subject, predicate, and object. This method is
 	 * necessary since the database stores most objects as columns except literals. In
@@ -107,7 +112,8 @@ public class SharedServices {
     		byte[] rawBytes = kv.getValue();
     		int number;
     		try {
-    			number = Integer.parseInt(new String(rawBytes));
+    			//number = Integer.parseInt(new String(rawBytes));
+    			number = ByteBuffer.wrap(rawBytes).getInt();
     		} catch (NumberFormatException e) {
     			number = -1;
     		}
@@ -182,7 +188,11 @@ public class SharedServices {
 				kv.getValue());
 	}
 	
-	// Takes a KeyValue and creates a single-line String in HBase key:family:qualifier:timestamp:value format
+	/**
+	 * Takes a KeyValue and creates a single-line String in HBase key:family:qualifier:timestamp:value format
+	 * @param KeyValue kv = input Key Value
+	 * @return String = KeyValue converted into a HBase representation in English 
+	 */
 	public static String keyValueToString(KeyValue kv) {
 		StringBuilder builder = new StringBuilder();
 		builder.append(new String(kv.getRow()));

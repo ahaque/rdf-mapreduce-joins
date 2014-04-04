@@ -1,10 +1,11 @@
 /**
- * Reduce Side Join BSBM Q1
+ * Reduce Side Join BSBM Q11
  * @date March 2013
  * @author Albert Haque
  */
 
 import java.io.IOException;
+import java.util.LinkedList;
 import java.util.List;
 
 import org.apache.hadoop.conf.Configuration;
@@ -24,7 +25,7 @@ import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 public class ReduceSideJoinBSBMQ11 {
 	
 	// Begin Query Information
-	private static String OfferXYZ = "";
+	private static String OfferXYZ = "bsbm-inst_dataFromVendor46/Offer95918";
 	// End Query Information
 		
 	public static void main(String[] args) throws ClassNotFoundException, IOException, InterruptedException {
@@ -90,10 +91,10 @@ public class ReduceSideJoinBSBMQ11 {
 		private Text text = new Text();
 		
 		private boolean isPartOfFirstUnion(Result value) {
-			if (!(new String(value.getRow()).equals(OfferXYZ))) {
-				return false;
+			if (new String(value.getRow()).equals(OfferXYZ)) {
+				return true;
 			}
-			return true;
+			return false;
 		}
 
 		public void map(ImmutableBytesWritable row, Result value, Context context) throws InterruptedException, IOException {
@@ -111,19 +112,32 @@ public class ReduceSideJoinBSBMQ11 {
 			// TP-01
 			if (isPartOfFirstUnion(value)) {
 				List<KeyValue> entireRowAsList = value.list();
-		    	context.write(text, new KeyValueArrayWritable((KeyValue[]) entireRowAsList.toArray()));
+				KeyValue[] kvsAsArray = new KeyValue[entireRowAsList.size()];
+				for (int i = 0; i < entireRowAsList.size(); i++) {
+					kvsAsArray[i] = entireRowAsList.get(i);
+				}
+		    	context.write(text, new KeyValueArrayWritable(kvsAsArray));
 		    	return;
 			}
 			// TP-02
 			else {
 				List<KeyValue> entireRowAsList = value.list();
+				List<KeyValue> kvsToTransmit = new LinkedList<KeyValue>();
 				// Check all cells and see if the OFFER is part of the value
 				for (KeyValue kv : entireRowAsList) {
-					if (!(new String(kv.getValue()).equals(OfferXYZ))) {
-						entireRowAsList.remove(kv);
+					if (new String(kv.getValue()).equals(OfferXYZ)) {
+						kvsToTransmit.add(kv);
 					}
 				}
-		    	context.write(text, new KeyValueArrayWritable((KeyValue[]) entireRowAsList.toArray()));
+				KeyValue[] kvsAsArray = new KeyValue[kvsToTransmit.size()];
+				for (int i = 0; i < kvsToTransmit.size(); i++) {
+					kvsAsArray[i] = kvsToTransmit.get(i);
+				}
+				if (kvsAsArray.length > 0) {
+			    	context.write(text, new KeyValueArrayWritable(kvsAsArray));
+				} else {
+					return;
+				}
 			}
 		}
 	}	    
