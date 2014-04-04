@@ -173,7 +173,7 @@ public class SharedServices {
 		int currentIndex = 0;
 		for (int i = 0; i < line.length(); i++) {
 			char c = line.charAt(i);
-			if (c == SharedServices.SUBVALUE_DELIMITER) {
+			if (c == SharedServices.SUBVALUE_DELIMITER || i == (line.length()-1)) {
 				tuple[currentIndex] = build.toString();
 				currentIndex++;
 				build.setLength(0);
