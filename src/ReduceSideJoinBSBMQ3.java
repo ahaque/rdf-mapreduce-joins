@@ -27,12 +27,11 @@ import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 public class ReduceSideJoinBSBMQ3 {
 	
 	// Begin Query Information
-	private static String ProductXYZ = "bsbm-inst_dataFromProducer460/Product22747";
 	private static String ProductType = "bsbm-inst_ProductType230";
 	private static String ProductFeature1 = "bsbm-inst_ProductFeature39";
 	private static String ProductFeature2 = "bsbm-inst_ProductFeature41";
 	private static int x = 0;
-	private static int y = 0;
+	private static int y = 5000;
 	private static String[] ProjectedVariables = {"rdfs_label"};
 	// End Query Information
 	
