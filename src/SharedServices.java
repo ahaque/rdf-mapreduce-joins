@@ -1,9 +1,11 @@
 import java.io.IOException;
+import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.List;
 
 import org.apache.hadoop.hbase.KeyValue;
+import org.apache.hadoop.hbase.util.Bytes;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
 
@@ -77,8 +79,13 @@ public class SharedServices {
     	// integer literals
     	if (literalTypeMap.get(columnName) == SharedServices.Type.INT) {
     		byte[] rawBytes = kv.getValue();
-			int number = ByteBuffer.wrap(rawBytes).getInt();
-			
+    		int number;
+    		try {
+    			number = Integer.parseInt(new String(rawBytes));
+    		} catch (NumberFormatException e) {
+    			number = -1;
+    		}
+    		
 			result[0] = new String(kv.getBuffer(), kv.getKeyOffset(), kv.getKeyLength());
 			result[1] = columnName;
 			result[2] = number + "";
@@ -87,8 +94,7 @@ public class SharedServices {
     	// Type: double
     	else if (literalTypeMap.get(columnName) == SharedServices.Type.DOUBLE) {
     		byte[] rawBytes = kv.getValue();
-			double number = ByteBuffer.wrap(rawBytes).getDouble();
-			
+    		double number = ByteBuffer.wrap(rawBytes).getDouble();
 			result[0] = new String(kv.getBuffer(), kv.getKeyOffset(), kv.getKeyLength());
 			result[1] = columnName;
 			result[2] = number + "";
@@ -163,7 +169,22 @@ public class SharedServices {
     	builder.append(SharedServices.SUBVALUE_DELIMITER);
     	builder.append(kv.getTimestamp());
     	builder.append(SharedServices.SUBVALUE_DELIMITER);
-    	builder.append(new String(kv.getValue()));
+		Type dataType = literalTypeMap.get(new String(kv.getQualifier()));
+		String result;
+		if (dataType == Type.INT) {
+			int number = ByteBuffer.wrap(kv.getValue()).getInt();
+			result = "" + number;
+		} else if (dataType == Type.DOUBLE) {
+			double number = ByteBuffer.wrap(kv.getValue()).getDouble();
+			result = "" + number;
+		} else if (dataType == Type.DATE || dataType == Type.DATETIME) {
+			long number = ByteBuffer.wrap(kv.getValue()).getLong();
+			result = "" + number;
+		} else {
+			result = new String(kv.getValue());
+		}
+    
+    	builder.append(result);
     	return builder.toString();
 	}
 	
@@ -181,12 +202,25 @@ public class SharedServices {
 				build.append(c);
 			}
 		}
+		// Need to convert string to long/double/int if necessary
+		Type dataType = literalTypeMap.get(tuple[2]);
+		byte[] correctObjectFormat;
+		if (dataType == Type.INT) {
+			correctObjectFormat = Bytes.toBytes(Integer.parseInt(tuple[4]));
+		} else if (dataType == Type.DOUBLE) {
+			correctObjectFormat = Bytes.toBytes(Double.parseDouble(tuple[4]));
+		} else if (dataType == Type.DATE || dataType == Type.DATETIME) {
+			correctObjectFormat = Bytes.toBytes(Long.parseLong(tuple[4]));
+		} else {
+			correctObjectFormat = tuple[4].getBytes();
+		}
+		
 		return new KeyValue(
 				tuple[0].getBytes(),
 				tuple[1].getBytes(),
 				tuple[2].getBytes(),
 				Long.parseLong(tuple[3]),
-				tuple[4].getBytes()
+				correctObjectFormat
 				);
 	}
 }

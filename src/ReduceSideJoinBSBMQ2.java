@@ -122,7 +122,13 @@ public class ReduceSideJoinBSBMQ2 {
 		job2.setJarByClass(ReduceSideJoinBSBMQ2.class);
 		
 		job2.setMapperClass(ReduceSideJoin_MapperStage2.class);
+		job2.setMapOutputKeyClass(Text.class);
+		job2.setMapOutputValueClass(KeyValueArrayWritable.class);
+		
 		job2.setReducerClass(ReduceSideJoin_ReducerStage2.class); 
+		job2.setOutputKeyClass(Text.class);
+		job2.setOutputValueClass(Text.class);
+		
 		job2.setNumReduceTasks(1);    
 		// The output from Stage-1 (input for stage 2) is a key-value (subject-row) format
 		job2.setInputFormatClass(KeyValueTextInputFormat.class);
