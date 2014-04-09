@@ -99,14 +99,25 @@ public class ReduceSideJoinBSBMQ12 {
 
 		public void map(ImmutableBytesWritable row, Result value, Context context) throws InterruptedException, IOException {
 			text.set(new String(value.getRow()));
-		/* BERLIN SPARQL BENHCMARK QUERY 11
+		/* BERLIN SPARQL BENHCMARK QUERY 12
 		   ----------------------------------------
-			SELECT ?property ?hasValue ?isValueOf
-			WHERE {
-			[TP-01]	{ %OfferXYZ% ?property ?hasValue }
-					UNION
-			[TP-02]	{ ?isValueOf ?property %OfferXYZ% }
-			}
+			CONSTRUCT { %OfferXYZ% bsbm-export:product ?productURI .
+				 %OfferXYZ% bsbm-export:productlabel ?productlabel .
+				 %OfferXYZ% bsbm-export:vendor ?vendorname .
+				 %OfferXYZ% bsbm-export:vendorhomepage ?vendorhomepage . 
+				 %OfferXYZ% bsbm-export:offerURL ?offerURL .
+				 %OfferXYZ% bsbm-export:price ?price .
+				 %OfferXYZ% bsbm-export:deliveryDays ?deliveryDays .
+				 %OfferXYZ% bsbm-export:validuntil ?validTo } 
+				WHERE { %OfferXYZ% bsbm:product ?productURI .
+				 ?productURI rdfs:label ?productlabel .
+				 %OfferXYZ% bsbm:vendor ?vendorURI .
+				 ?vendorURI rdfs:label ?vendorname .
+				 ?vendorURI foaf:homepage ?vendorhomepage .
+				 %OfferXYZ% bsbm:offerWebpage ?offerURL .
+				 %OfferXYZ% bsbm:price ?price .
+				 %OfferXYZ% bsbm:deliveryDays ?deliveryDays .
+				 %OfferXYZ% bsbm:validTo ?validTo }
 		   ---------------------------------------
 		 */
 			// TP-01
