@@ -133,18 +133,24 @@ public class ReduceSideJoinBSBMQ5 {
 			// TP-02
 			keyValuesToTransmit.addAll(SharedServices.getKeyValuesContainingPredicate(productRow, "bsbm-voc_productFeature"));
 			
+			boolean foundNumeric1 = false;
+			boolean foundNumeric2 = false;
 			for (KeyValue kv : productRow) {
 				// TP-04
 				if (new String(kv.getQualifier()).equals("bsbm-voc_productPropertyNumeric1")) {
 					keyValuesToTransmit.add(kv);
+					foundNumeric1 = true;
 				}
 				// TP-03
 				else if (new String(kv.getQualifier()).equals("bsbm-voc_productPropertyNumeric2")) {
 					keyValuesToTransmit.add(kv);
+					foundNumeric2 = true;
 				}
 			}
-			// Write the output product key-value
-			context.write(text, new KeyValueArrayWritable(SharedServices.listToArray(keyValuesToTransmit)));
+			if (foundNumeric1 && foundNumeric2) {
+				// Write the output product key-value
+				context.write(text, new KeyValueArrayWritable(SharedServices.listToArray(keyValuesToTransmit)));
+			}
 		}
 	}
 	
@@ -227,14 +233,15 @@ public class ReduceSideJoinBSBMQ5 {
 			for (KeyValueArrayWritable array : values) {
 		        for (KeyValue kv : (KeyValue[]) array.toArray()) {
 		        	// Get the product label
+		        	// Check the column name/qualifier since these are literals
 		        	if (new String(kv.getQualifier()).equals("rdfs_label")) {
 		        		builder.append(SharedServices.keyValueToString(kv));
 			        	builder.append(SharedServices.SUBVALUE_DELIMITER);
 			        	builder.append("\n");
 		        	}
-		        	if (new String(kv.getValue()).equals("bsbm-voc_productPropertyNumeric1")) {
+		        	if (new String(kv.getQualifier()).equals("bsbm-voc_productPropertyNumeric1")) {
 		        		simProperty1KeyValue = kv;
-		        	} else if (new String(kv.getValue()).equals("bsbm-voc_productPropertyNumeric2")) {
+		        	} else if (new String(kv.getQualifier()).equals("bsbm-voc_productPropertyNumeric2")) {
 		        		simProperty2KeyValue = kv;
 		        	}
 		        }
