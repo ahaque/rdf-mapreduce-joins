@@ -70,7 +70,6 @@ public class ReduceSideJoinBSBMQ2 {
 	    
 	    table = new HTable(hConf, args[0]);
 		startJob_Stage1(args, hConf);
-		startJob_Stage2(args, hConf);
 	}
 	
 	// MapReduce Stage-1 Job
@@ -115,38 +114,6 @@ public class ReduceSideJoinBSBMQ2 {
 		return job1;
 	}
 
-	// MapReduce Stage-2 Job
-	public static Job startJob_Stage2(String[] args, Configuration hConf) throws IOException {
-		
-		Configuration config = new Configuration();
-		config.set("mapreduce.input.keyvaluelinerecordreader.key.value.separator", ""+ SharedServices.KEY_VALUE_DELIMITER);		
-		Job job2 = new Job(config);
-		job2.setJobName("BSBM-Q2-ReduceSideJoin-Stage2");
-		job2.setJarByClass(ReduceSideJoinBSBMQ2.class);
-		
-		job2.setMapperClass(ReduceSideJoin_MapperStage2.class);
-		job2.setMapOutputKeyClass(Text.class);
-		job2.setMapOutputValueClass(KeyValueArrayWritable.class);
-		
-		job2.setReducerClass(SharedServices.ReduceSideJoin_Reducer.class); 
-		job2.setOutputKeyClass(Text.class);
-		job2.setOutputValueClass(Text.class);
-		
-		job2.setNumReduceTasks(1);    
-		// The output from Stage-1 (input for stage 2) is a key-value (subject-row) format
-		job2.setInputFormatClass(KeyValueTextInputFormat.class);
-		job2.setOutputFormatClass(TextOutputFormat.class);
-		FileInputFormat.addInputPath(job2, new Path("output/BSBMQ2/Stage1"));
-		FileOutputFormat.setOutputPath(job2, new Path("output/BSBMQ2/Stage2"));
-
-		try {
-			job2.waitForCompletion(true);
-		} catch (ClassNotFoundException e) { e.printStackTrace(); }
-		  catch (InterruptedException e) { e.printStackTrace();}
-
-		return job2;
-	}
- 
 	
 	public static class ReduceSideJoin_MapperStage1 extends TableMapper<Text, KeyValueArrayWritable> {
 		
@@ -241,44 +208,6 @@ WHERE {
 		}
 	}
 	
-	public static class ReduceSideJoin_MapperStage2 extends Mapper<Text, Text, Text, KeyValueArrayWritable> {
-		
-		public void map(Text key, Text value, Context context) throws InterruptedException, IOException {
-		/* BERLIN SPARQL BENHCMARK QUERY 2
-		   ----------------------------------------
-SELECT
-	?label ?comment ?producer ?productFeature ?propertyTextual1 ?propertyTextual2 ?propertyTextual3
- 	?propertyNumeric1 ?propertyNumeric2 ?propertyTextual4 ?propertyTextual5 ?propertyNumeric4 
-WHERE {
-	[TriplePattern-01]	%ProductXYZ% rdfs:label ?label .
-	[TriplePattern-02]	%ProductXYZ% rdfs:comment ?comment .
-	[TriplePattern-03]	%ProductXYZ% bsbm:productPropertyTextual1 ?propertyTextual1 .
-	[TriplePattern-04]	%ProductXYZ% bsbm:productPropertyTextual2 ?propertyTextual2 .
-	[TriplePattern-05]	%ProductXYZ% bsbm:productPropertyTextual3 ?propertyTextual3 .
-	[TriplePattern-06]	%ProductXYZ% bsbm:productPropertyNumeric1 ?propertyNumeric1 .
-	[TriplePattern-07]	%ProductXYZ% bsbm:productPropertyNumeric2 ?propertyNumeric2 .
-	[TriplePattern-08]	%ProductXYZ% dc:publisher ?p . 
-	[TriplePattern-09]	%ProductXYZ% bsbm:producer ?p .
-	[TriplePattern-10]	?p rdfs:label ?producer .
-	[TriplePattern-11]	%ProductXYZ% bsbm:productFeature ?f .
-	[TriplePattern-12]	?f rdfs:label ?productFeature .
-	[TriplePattern-13]	OPTIONAL { %ProductXYZ% bsbm:productPropertyTextual4 ?propertyTextual4 }
-	[TriplePattern-14]	OPTIONAL { %ProductXYZ% bsbm:productPropertyTextual5 ?propertyTextual5 }
-	[TriplePattern-15]	OPTIONAL { %ProductXYZ% bsbm:productPropertyNumeric4 ?propertyNumeric4 }
-}
-		   ---------------------------------------
-		 */
-			if (value == null || value.toString().length() == 0) {
-				return;
-			}
-			KeyValue kv = SharedServices.stringToKeyValue(value.toString());
-			KeyValue[] kvArray = new KeyValue[1];
-			kvArray[0] = kv;
-			context.write(key, new KeyValueArrayWritable(kvArray));
-		}
-	}
-	
-	
 	// Output format:
 	// Key: HBase Row Key (subject)
 	// Value: All projected attributes for the row key (subject)
@@ -293,8 +222,33 @@ WHERE {
 	    }
 
 		public void reduce(Text key, Iterable<KeyValueArrayWritable> values, Context context) throws IOException, InterruptedException {
+			/* BERLIN SPARQL BENHCMARK QUERY 2
+			   ----------------------------------------
+	SELECT
+		?label ?comment ?producer ?productFeature ?propertyTextual1 ?propertyTextual2 ?propertyTextual3
+	 	?propertyNumeric1 ?propertyNumeric2 ?propertyTextual4 ?propertyTextual5 ?propertyNumeric4 
+	WHERE {
+		[TriplePattern-01]	%ProductXYZ% rdfs:label ?label .
+		[TriplePattern-02]	%ProductXYZ% rdfs:comment ?comment .
+		[TriplePattern-03]	%ProductXYZ% bsbm:productPropertyTextual1 ?propertyTextual1 .
+		[TriplePattern-04]	%ProductXYZ% bsbm:productPropertyTextual2 ?propertyTextual2 .
+		[TriplePattern-05]	%ProductXYZ% bsbm:productPropertyTextual3 ?propertyTextual3 .
+		[TriplePattern-06]	%ProductXYZ% bsbm:productPropertyNumeric1 ?propertyNumeric1 .
+		[TriplePattern-07]	%ProductXYZ% bsbm:productPropertyNumeric2 ?propertyNumeric2 .
+		[TriplePattern-08]	%ProductXYZ% dc:publisher ?p . 
+		[TriplePattern-09]	%ProductXYZ% bsbm:producer ?p .
+		[TriplePattern-10]	?p rdfs:label ?producer .
+		[TriplePattern-11]	%ProductXYZ% bsbm:productFeature ?f .
+		[TriplePattern-12]	?f rdfs:label ?productFeature .
+		[TriplePattern-13]	OPTIONAL { %ProductXYZ% bsbm:productPropertyTextual4 ?propertyTextual4 }
+		[TriplePattern-14]	OPTIONAL { %ProductXYZ% bsbm:productPropertyTextual5 ?propertyTextual5 }
+		[TriplePattern-15]	OPTIONAL { %ProductXYZ% bsbm:productPropertyNumeric4 ?propertyNumeric4 }
+	}
+			   ---------------------------------------
+			 */
 			StringBuilder builder = new StringBuilder();
 			byte[] publisherKey = null;
+			byte[] featureKey = null;
 			builder.append("\n");
 			for (KeyValueArrayWritable array : values) {
 		        for (KeyValue kv : (KeyValue[]) array.toArray()) {
@@ -303,14 +257,22 @@ WHERE {
 		        	builder.append("\n");
 		        	if(new String(kv.getValue()).equals("dc_publisher")) {
 		        		publisherKey = kv.getQualifier();
+		        	} else if(new String(kv.getValue()).equals("bsbm-voc_productFeature")) {
+		        		featureKey = kv.getQualifier();
 		        	}
 		        }
 		      }
-			if (publisherKey == null) {
-				throw new NullPointerException();
+			if ((publisherKey == null)||(featureKey == null)) {
+				return;
 			}
+			// TP-10: For this product, get its producer's label
 			Result publisher = table.get(new Get(publisherKey).addColumn(SharedServices.CF_AS_BYTES, "rdfs_label".getBytes()));
 			builder.append(SharedServices.keyValueToString(publisher.list().get(0)));
+			
+			// TP-12: For this product, get its feature's label
+			Result feature = table.get(new Get(publisherKey).addColumn(SharedServices.CF_AS_BYTES, "rdfs_label".getBytes()));
+			builder.append(SharedServices.keyValueToString(feature.list().get(0)));
+
 			context.write(key, new Text(builder.toString()));
 		}
 	}	    
