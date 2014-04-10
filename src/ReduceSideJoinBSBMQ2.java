@@ -4,7 +4,10 @@
  * @author Albert Haque
  */
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
@@ -13,15 +16,19 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hbase.HBaseConfiguration;
 import org.apache.hadoop.hbase.KeyValue;
+import org.apache.hadoop.hbase.client.Get;
+import org.apache.hadoop.hbase.client.HTable;
 import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.mapreduce.TableMapReduceUtil;
 import org.apache.hadoop.hbase.mapreduce.TableMapper;
+import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.Reducer;
+import org.apache.hadoop.mapreduce.Mapper.Context;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
 import org.apache.hadoop.mapreduce.lib.input.KeyValueTextInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
@@ -47,6 +54,8 @@ public class ReduceSideJoinBSBMQ2 {
 		"bsbm-voc_productPropertyNumeric4"
 	};
 	// End Query Information
+	
+	private static HTable table;
 		
 	public static void main(String[] args) throws ClassNotFoundException, IOException, InterruptedException {
 
@@ -63,7 +72,8 @@ public class ReduceSideJoinBSBMQ2 {
 	    hConf.set("hbase.zookeeper.quorum", args[1]);
 	    hConf.set("scan.table", args[0]);
 	    hConf.set("hbase.zookeeper.property.clientPort", "2181");
-				
+	    
+	    table = new HTable(hConf, args[0]);
 		startJob_Stage1(args, hConf);
 		startJob_Stage2(args, hConf);
 	}
@@ -146,6 +156,7 @@ public class ReduceSideJoinBSBMQ2 {
 	public static class ReduceSideJoin_MapperStage1 extends TableMapper<Text, KeyValueArrayWritable> {
 		
 		private Text text = new Text();
+		HTable table;
 
 		public void map(ImmutableBytesWritable row, Result value, Context context) throws InterruptedException, IOException {
 		/* BERLIN SPARQL BENHCMARK QUERY 2
@@ -209,6 +220,17 @@ WHERE {
 				optionalVariablesList.add(col);
 			}
 			
+			// Add the join attributes
+			// TP-08 and TP-09
+			KeyValue publisher = SharedServices.getKeyValueContainingPredicate(entireRowAsList, "dc_publisher");
+			if (publisher == null) {
+				publisher = SharedServices.getKeyValueContainingPredicate(entireRowAsList, "bsbm-voc_producer");
+			}
+			productRowList.add(SharedServices.addTagToKv(publisher, KeyValue.Type.Minimum));
+			// TP-11
+			KeyValue feature = SharedServices.getKeyValueContainingPredicate(entireRowAsList, "bsbm-voc_productFeature");
+			productRowList.add(SharedServices.addTagToKv(feature, KeyValue.Type.Minimum));
+			
 			// Get the relevant columns from the table
 			for (KeyValue kv : entireRowAsList) {
 				String columnName = new String(kv.getQualifier());
@@ -235,6 +257,7 @@ WHERE {
 			if (projectedVariablesList.size() > 0) {
 				return;
 			}
+
 			// Write the output product key-value
 			keyValuesToTransmit.addAll(productRowList);
 			context.write(text, new KeyValueArrayWritable(SharedServices.listToArray(keyValuesToTransmit)));
@@ -243,8 +266,6 @@ WHERE {
 	
 	public static class ReduceSideJoin_MapperStage2 extends Mapper<Text, Text, Text, KeyValueArrayWritable> {
 		
-		private Text text = new Text();
-
 		public void map(Text key, Text value, Context context) throws InterruptedException, IOException {
 		/* BERLIN SPARQL BENHCMARK QUERY 2
 		   ----------------------------------------
@@ -285,16 +306,35 @@ WHERE {
 	// Key: HBase Row Key (subject)
 	// Value: All projected attributes for the row key (subject)
 	public static class ReduceSideJoin_ReducerStage1 extends Reducer<Text, KeyValueArrayWritable, Text, Text>  {
+		
+	    HTable table;
+
+	    @Override
+	    protected void setup(Context context) throws IOException, InterruptedException {
+	      Configuration conf = context.getConfiguration();
+	      table = new HTable(conf, conf.get("scan.table"));
+	    }
 
 		public void reduce(Text key, Iterable<KeyValueArrayWritable> values, Context context) throws IOException, InterruptedException {
 			StringBuilder builder = new StringBuilder();
+			byte[] publisherKey = null;
 			builder.append("\n");
 			for (KeyValueArrayWritable array : values) {
 		        for (KeyValue kv : (KeyValue[]) array.toArray()) {
 		        	builder.append(SharedServices.keyValueToString(kv));
+		        	builder.append(SharedServices.SUBVALUE_DELIMITER);
 		        	builder.append("\n");
+		        	if(new String(kv.getValue()).equals("dc_publisher")) {
+		        		publisherKey = kv.getQualifier();
+		        	}
 		        }
 		      }
+			if (publisherKey == null) {
+				throw new NullPointerException();
+			}
+			Result publisher = table.get(new Get(publisherKey).addColumn(SharedServices.CF_AS_BYTES, "rdfs_label".getBytes()));
+			List<KeyValue> oneKvList = publisher.list();
+			builder.append(SharedServices.keyValueToString(oneKvList.get(0)));
 			context.write(key, new Text(builder.toString()));
 		}
 	}	    

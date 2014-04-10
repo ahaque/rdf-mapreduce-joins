@@ -16,6 +16,7 @@ import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Reducer;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
+import org.mortbay.log.Log;
 
 public class SharedServices {
 	
@@ -188,6 +189,24 @@ public class SharedServices {
 				kv.getValue());
 	}
 	
+	public static KeyValue getKeyValueContainingPredicate(KeyValue[] array, String predicate) {
+		for (KeyValue kv : array) {
+			if (new String(kv.getValue()).equals(predicate)) {
+				return kv;
+			}
+		}
+		return null;
+	}
+	
+	public static KeyValue getKeyValueContainingPredicate(List<KeyValue> list, String predicate) {
+		for (KeyValue kv : list) {
+			if (new String(kv.getValue()).equals(predicate)) {
+				return kv;
+			}
+		}
+		return null;
+	}
+	
 	/**
 	 * Takes a KeyValue and creates a single-line String in HBase key:family:qualifier:timestamp:value format
 	 * @param KeyValue kv = input Key Value
@@ -219,7 +238,7 @@ public class SharedServices {
 		} else {
 			result = new String(kv.getValue());
 		}
-    
+		Log.info("Mapper Output: " + result);
     	builder.append(result);
     	return builder.toString();
 	}
