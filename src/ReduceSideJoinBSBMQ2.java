@@ -29,7 +29,7 @@ import org.mortbay.log.Log;
 public class ReduceSideJoinBSBMQ2 {
 	
 	// Begin Query Information
-	private static String ProductXYZ = "bsbm-inst_dataFromProducer260/Product12773";
+	private static String ProductXYZ = "bsbm-inst_dataFromProducer105/Product4956";
 	private static String[] ProjectedVariables = {
 		"rdfs_label",
 		"rdfs_comment",
@@ -138,7 +138,6 @@ WHERE {
 }
 		   ---------------------------------------
 		 */
-			Log.info("ProductXYZ = " + ProductXYZ);
 			String rowKey = new String(value.getRow());
 			if (!rowKey.equals(ProductXYZ)) {
 				return;
@@ -161,14 +160,14 @@ WHERE {
 			
 			// Add the join attributes
 			// TP-08 and TP-09
-			KeyValue publisher = SharedServices.getKeyValueContainingPredicate(entireRowAsList, "dc_publisher");
-			if (publisher == null) {
-				publisher = SharedServices.getKeyValueContainingPredicate(entireRowAsList, "bsbm-voc_producer");
+			List<KeyValue> publisher = SharedServices.getKeyValuesContainingPredicate(entireRowAsList, "dc_publisher");
+			if (publisher.size() == 0) {
+				publisher = SharedServices.getKeyValuesContainingPredicate(entireRowAsList, "bsbm-voc_producer");
 			}
-			keyValuesToTransmit.add(publisher);
+			keyValuesToTransmit.addAll(publisher);
 			// TP-11
-			KeyValue feature = SharedServices.getKeyValueContainingPredicate(entireRowAsList, "bsbm-voc_productFeature");
-			keyValuesToTransmit.add(feature);
+			List<KeyValue> feature = SharedServices.getKeyValuesContainingPredicate(entireRowAsList, "bsbm-voc_productFeature");
+			keyValuesToTransmit.addAll(feature);
 			
 			// Get the relevant columns from the table
 			for (KeyValue kv : entireRowAsList) {
@@ -242,8 +241,8 @@ WHERE {
 			 */
 			StringBuilder builder = new StringBuilder();
 			byte[] publisherKey = null;
-			byte[] featureKey = null;
 			builder.append("\n");
+			ArrayList<byte[]> featureKeys = new ArrayList<byte[]>();
 			for (KeyValueArrayWritable array : values) {
 		        for (KeyValue kv : (KeyValue[]) array.toArray()) {
 		        	builder.append(SharedServices.keyValueToString(kv));
@@ -252,11 +251,11 @@ WHERE {
 		        	if(new String(kv.getValue()).equals("dc_publisher")) {
 		        		publisherKey = kv.getQualifier();
 		        	} else if(new String(kv.getValue()).equals("bsbm-voc_productFeature")) {
-		        		featureKey = kv.getQualifier();
+		        		featureKeys.add(kv.getQualifier());
 		        	}
 		        }
 		      }
-			if ((publisherKey == null)||(featureKey == null)) {
+			if ((publisherKey == null)||(featureKeys.size() == 0)) {
 				return;
 			}
 			// TP-10: For this product, get its producer's label
@@ -264,9 +263,11 @@ WHERE {
 			builder.append(SharedServices.keyValueToString(publisher.list().get(0)));
 			builder.append("\n");
 			// TP-12: For this product, get its feature's label
-			Result feature = table.get(new Get(featureKey).addColumn(SharedServices.CF_AS_BYTES, "rdfs_label".getBytes()));
-			builder.append(SharedServices.keyValueToString(feature.list().get(0)));
-			builder.append("\n");
+			for (byte[] fkey : featureKeys) {
+				Result feature = table.get(new Get(fkey).addColumn(SharedServices.CF_AS_BYTES, "rdfs_label".getBytes()));
+				builder.append(SharedServices.keyValueToString(feature.list().get(0)));
+				builder.append("\n");
+			}
 			
 			context.write(key, new Text(builder.toString()));
 		}

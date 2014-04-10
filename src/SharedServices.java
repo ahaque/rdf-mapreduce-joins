@@ -8,6 +8,7 @@
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
 
 import org.apache.hadoop.hbase.KeyValue;
@@ -189,24 +190,16 @@ public class SharedServices {
 				kv.getValue());
 	}
 	
-	public static KeyValue getKeyValueContainingPredicate(KeyValue[] array, String predicate) {
-		for (KeyValue kv : array) {
-			if (new String(kv.getValue()).equals(predicate)) {
-				return kv;
-			}
-		}
-		return null;
-	}
-	
-	public static KeyValue getKeyValueContainingPredicate(List<KeyValue> list, String predicate) {
+	public static List<KeyValue> getKeyValuesContainingPredicate(List<KeyValue> list, String predicate) {
+		List<KeyValue> keyValuesToReturn = new LinkedList<KeyValue>();
 		for (KeyValue kv : list) {
 			if (new String(kv.getValue()).equals(predicate)) {
-				return kv;
+				keyValuesToReturn.add(kv);
 			}
 		}
-		return null;
+		return keyValuesToReturn;
 	}
-	
+
 	/**
 	 * Takes a KeyValue and creates a single-line String in HBase key:family:qualifier:timestamp:value format
 	 * @param KeyValue kv = input Key Value
