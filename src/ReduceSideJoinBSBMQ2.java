@@ -6,7 +6,6 @@
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.LinkedList;
 import java.util.List;
 
 import org.apache.hadoop.conf.Configuration;
@@ -22,17 +21,15 @@ import org.apache.hadoop.hbase.mapreduce.TableMapReduceUtil;
 import org.apache.hadoop.hbase.mapreduce.TableMapper;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
-import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.Reducer;
-import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
-import org.apache.hadoop.mapreduce.lib.input.KeyValueTextInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
+import org.mortbay.log.Log;
 
 public class ReduceSideJoinBSBMQ2 {
 	
 	// Begin Query Information
-	private static String ProductXYZ = "bsbm-inst_dataFromProducer460/Product22747";
+	private static String ProductXYZ = "bsbm-inst_dataFromProducer260/Product12773";
 	private static String[] ProjectedVariables = {
 		"rdfs_label",
 		"rdfs_comment",
@@ -49,9 +46,7 @@ public class ReduceSideJoinBSBMQ2 {
 		"bsbm-voc_productPropertyNumeric4"
 	};
 	// End Query Information
-	
-	private static HTable table;
-		
+			
 	public static void main(String[] args) throws ClassNotFoundException, IOException, InterruptedException {
 
 		// Zookeeper quorum is usually the same as the HBase master node
@@ -68,7 +63,6 @@ public class ReduceSideJoinBSBMQ2 {
 	    hConf.set("scan.table", args[0]);
 	    hConf.set("hbase.zookeeper.property.clientPort", "2181");
 	    
-	    table = new HTable(hConf, args[0]);
 		startJob_Stage1(args, hConf);
 	}
 	
@@ -104,7 +98,7 @@ public class ReduceSideJoinBSBMQ2 {
 		job1.setReducerClass(ReduceSideJoin_ReducerStage1.class);   
 		job1.setOutputFormatClass(TextOutputFormat.class);
 		//job1.setNumReduceTasks(1);  // Uncomment this if running into problems on 2+ node cluster
-		FileOutputFormat.setOutputPath(job1, new Path("output/BSBMQ2/Stage1"));
+		FileOutputFormat.setOutputPath(job1, new Path("output/BSBMQ2"));
 
 		try {
 			job1.waitForCompletion(true);
@@ -118,7 +112,6 @@ public class ReduceSideJoinBSBMQ2 {
 	public static class ReduceSideJoin_MapperStage1 extends TableMapper<Text, KeyValueArrayWritable> {
 		
 		private Text text = new Text();
-		HTable table;
 
 		public void map(ImmutableBytesWritable row, Result value, Context context) throws InterruptedException, IOException {
 		/* BERLIN SPARQL BENHCMARK QUERY 2
@@ -145,6 +138,7 @@ WHERE {
 }
 		   ---------------------------------------
 		 */
+			Log.info("ProductXYZ = " + ProductXYZ);
 			String rowKey = new String(value.getRow());
 			if (!rowKey.equals(ProductXYZ)) {
 				return;
@@ -268,11 +262,12 @@ WHERE {
 			// TP-10: For this product, get its producer's label
 			Result publisher = table.get(new Get(publisherKey).addColumn(SharedServices.CF_AS_BYTES, "rdfs_label".getBytes()));
 			builder.append(SharedServices.keyValueToString(publisher.list().get(0)));
-			
+			builder.append("\n");
 			// TP-12: For this product, get its feature's label
-			Result feature = table.get(new Get(publisherKey).addColumn(SharedServices.CF_AS_BYTES, "rdfs_label".getBytes()));
+			Result feature = table.get(new Get(featureKey).addColumn(SharedServices.CF_AS_BYTES, "rdfs_label".getBytes()));
 			builder.append(SharedServices.keyValueToString(feature.list().get(0)));
-
+			builder.append("\n");
+			
 			context.write(key, new Text(builder.toString()));
 		}
 	}	    
