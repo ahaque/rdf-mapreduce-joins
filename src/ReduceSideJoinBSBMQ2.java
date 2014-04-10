@@ -4,10 +4,7 @@
  * @author Albert Haque
  */
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
@@ -23,12 +20,10 @@ import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.mapreduce.TableMapReduceUtil;
 import org.apache.hadoop.hbase.mapreduce.TableMapper;
-import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.Reducer;
-import org.apache.hadoop.mapreduce.Mapper.Context;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
 import org.apache.hadoop.mapreduce.lib.input.KeyValueTextInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
@@ -191,25 +186,8 @@ WHERE {
 			ArrayList<KeyValue> keyValuesToTransmit = new ArrayList<KeyValue>();
 
 			text.set(rowKey);
-
-			// PRODUCER
-			// TriplePattern-10
-			ArrayList<KeyValue> publisherRowList = new ArrayList<KeyValue>();
-			// Add the "table" tags
-			for (KeyValue kv : entireRowAsList) {
-				if (new String(kv.getQualifier()).equals("rdfs_label")) {
-					// Tag this KeyValue as R1
-					publisherRowList.add(SharedServices.addTagToKv(kv, KeyValue.Type.Maximum));
-				}
-			}
-			// If row doesn't have a label, then we don't emit anything
-			// If row has "rdfs_label" then we output it
-			if (publisherRowList.size() != 0) {
-				keyValuesToTransmit.addAll(publisherRowList);
-			}
 			
 			// PRODUCT
-			List<KeyValue> productRowList = new LinkedList<KeyValue>();
 			// Convert to array list
 			ArrayList<String> projectedVariablesList = new ArrayList<String>();
 			for (String col : ProjectedVariables) {
@@ -226,10 +204,10 @@ WHERE {
 			if (publisher == null) {
 				publisher = SharedServices.getKeyValueContainingPredicate(entireRowAsList, "bsbm-voc_producer");
 			}
-			productRowList.add(SharedServices.addTagToKv(publisher, KeyValue.Type.Minimum));
+			keyValuesToTransmit.add(publisher);
 			// TP-11
 			KeyValue feature = SharedServices.getKeyValueContainingPredicate(entireRowAsList, "bsbm-voc_productFeature");
-			productRowList.add(SharedServices.addTagToKv(feature, KeyValue.Type.Minimum));
+			keyValuesToTransmit.add(feature);
 			
 			// Get the relevant columns from the table
 			for (KeyValue kv : entireRowAsList) {
@@ -239,7 +217,7 @@ WHERE {
 					if (columnName.equals(projectedVariablesList.get(i))
 							|| new String(kv.getValue()).equals(projectedVariablesList.get(i))) {
 						// Tag this keyvalue as "R2"
-						productRowList.add(SharedServices.addTagToKv(kv, KeyValue.Type.Minimum));
+						keyValuesToTransmit.add(SharedServices.addTagToKv(kv, KeyValue.Type.Minimum));
 						projectedVariablesList.remove(i);
 						break;
 					}
@@ -247,7 +225,7 @@ WHERE {
 				// Get any optional columns if they exist
 				for (int i = 0; i < optionalVariablesList.size(); i++) {
 					if (columnName.equals(optionalVariablesList.get(i))) {
-						productRowList.add(SharedServices.addTagToKv(kv, KeyValue.Type.Minimum));
+						keyValuesToTransmit.add(SharedServices.addTagToKv(kv, KeyValue.Type.Minimum));
 						optionalVariablesList.remove(i);
 						break;
 					}
@@ -259,7 +237,6 @@ WHERE {
 			}
 
 			// Write the output product key-value
-			keyValuesToTransmit.addAll(productRowList);
 			context.write(text, new KeyValueArrayWritable(SharedServices.listToArray(keyValuesToTransmit)));
 		}
 	}
@@ -333,8 +310,7 @@ WHERE {
 				throw new NullPointerException();
 			}
 			Result publisher = table.get(new Get(publisherKey).addColumn(SharedServices.CF_AS_BYTES, "rdfs_label".getBytes()));
-			List<KeyValue> oneKvList = publisher.list();
-			builder.append(SharedServices.keyValueToString(oneKvList.get(0)));
+			builder.append(SharedServices.keyValueToString(publisher.list().get(0)));
 			context.write(key, new Text(builder.toString()));
 		}
 	}	    
