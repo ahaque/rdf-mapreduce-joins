@@ -1,5 +1,5 @@
 /**
- * Reduce Side Join BSBM Q11
+ * Reduce Side Join BSBM Q12
  * @date March 2013
  * @author Albert Haque
  */
