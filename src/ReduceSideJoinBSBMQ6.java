@@ -5,7 +5,6 @@
  */
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -13,8 +12,6 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hbase.HBaseConfiguration;
 import org.apache.hadoop.hbase.KeyValue;
-import org.apache.hadoop.hbase.client.Get;
-import org.apache.hadoop.hbase.client.HTable;
 import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
@@ -22,7 +19,6 @@ import org.apache.hadoop.hbase.mapreduce.TableMapReduceUtil;
 import org.apache.hadoop.hbase.mapreduce.TableMapper;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
-import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 
@@ -114,8 +110,11 @@ public class ReduceSideJoinBSBMQ6 {
 			text.set(rowKey);
 						
 			// TP-02
-			String cellValue = new String(value.getValue(SharedServices.CF_AS_BYTES, "bsbm-voc_Product".getBytes()));
-			if (!cellValue.equals("rdf_type")) {
+			byte[] rawBytes = value.getValue(SharedServices.CF_AS_BYTES, "bsbm-voc_Product".getBytes());
+			if (rawBytes == null) {
+				return;
+			}
+			if (!(new String(rawBytes).equals("rdf_type"))) {
 				return;
 			}
 			

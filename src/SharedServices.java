@@ -7,6 +7,7 @@
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -190,10 +191,17 @@ public class SharedServices {
 				kv.getValue());
 	}
 	
+	/**
+	 * Given a list of KeyValues, search through all the KeyValues and check 
+	 * the value of each KeyValue. If it matches the predicate, return it
+	 * @param List of KeyValues to search through
+	 * @return List of KeyValues with the predicate in the value position (object in column)
+	 */
 	public static List<KeyValue> getKeyValuesContainingPredicate(List<KeyValue> list, String predicate) {
 		List<KeyValue> keyValuesToReturn = new LinkedList<KeyValue>();
 		for (KeyValue kv : list) {
-			if (new String(kv.getValue()).equals(predicate)) {
+			if (Arrays.equals(kv.getValue(), predicate.getBytes())) {
+			//if (new String(kv.getValue()).equals(predicate)) {
 				keyValuesToReturn.add(kv);
 			}
 		}

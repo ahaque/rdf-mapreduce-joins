@@ -192,8 +192,7 @@ public class ReduceSideJoinBSBMQ5 {
 			StringBuilder builder = new StringBuilder();
 			builder.append("\n");
 			// Check to see if this product has a similar feature with ProductXYZ
-			Get productXYZget = new Get(ProductXYZ.getBytes());
-			Result productXYZresult = table.get(productXYZget);
+			Result productXYZresult = table.get(new Get(ProductXYZ.getBytes()));
 			// Get list of ProductXYZ features
 			List<KeyValue> productXYZasList = productXYZresult.list();
 			List<KeyValue> productXYZkvs = SharedServices.getKeyValuesContainingPredicate(productXYZasList, "bsbm-voc_productFeature");

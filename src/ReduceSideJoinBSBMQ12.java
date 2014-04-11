@@ -7,6 +7,7 @@
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import org.apache.hadoop.conf.Configuration;
@@ -29,12 +30,11 @@ import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 public class ReduceSideJoinBSBMQ12 {
 	
 	// Begin Query Information
-	private static String ProductXYZ = "bsbm-inst_dataFromProducer105/Product4956";
+	private static String OfferXYZ = "bsbm-inst_dataFromVendor215/Offer421332";
 	// End Query Information
 			
 	public static void main(String[] args) throws ClassNotFoundException, IOException, InterruptedException {
 
-		// Zookeeper quorum is usually the same as the HBase master node
 		String USAGE_MSG = "Arguments: <table name> <zookeeper quorum>";
 
 		if (args == null || args.length != 2) {
@@ -63,7 +63,7 @@ public class ReduceSideJoinBSBMQ12 {
 		 */
 	    Scan scan1 = new Scan();		
 		Job job1 = new Job(hConf);
-		job1.setJobName("BSBM-Q5-ReduceSideJoin");
+		job1.setJobName("BSBM-Q12-ReduceSideJoin");
 		job1.setJarByClass(ReduceSideJoinBSBMQ2.class);
 		// Change caching and number of time stamps to speed up the scan
 		scan1.setCaching(500);        
@@ -83,7 +83,7 @@ public class ReduceSideJoinBSBMQ12 {
 		job1.setReducerClass(ReduceSideJoin_ReducerStage1.class);   
 		job1.setOutputFormatClass(TextOutputFormat.class);
 		//job1.setNumReduceTasks(1);  // Uncomment this if running into problems on 2+ node cluster
-		FileOutputFormat.setOutputPath(job1, new Path("output/BSBMQ5"));
+		FileOutputFormat.setOutputPath(job1, new Path("output/BSBMQ12"));
 
 		try {
 			job1.waitForCompletion(true);
@@ -97,9 +97,16 @@ public class ReduceSideJoinBSBMQ12 {
 	public static class ReduceSideJoin_MapperStage1 extends TableMapper<Text, KeyValueArrayWritable> {
 		
 		private Text text = new Text();
+		HTable table;
+
+	    @Override
+	    protected void setup(Context context) throws IOException, InterruptedException {
+	      Configuration conf = context.getConfiguration();
+	      table = new HTable(conf, conf.get("scan.table"));
+	    }
 
 		public void map(ImmutableBytesWritable row, Result value, Context context) throws InterruptedException, IOException {
-		/* BERLIN SPARQL BENHCMARK QUERY 5
+		/* BERLIN SPARQL BENHCMARK QUERY 12
 		   ----------------------------------------
 		CONSTRUCT { %OfferXYZ% bsbm-export:product ?productURI .
 		 %OfferXYZ% bsbm-export:productlabel ?productlabel .
@@ -112,53 +119,57 @@ public class ReduceSideJoinBSBMQ12 {
 		WHERE {
 			[TP-01] %OfferXYZ% bsbm:product ?productURI .
 			[TP-02] ?productURI rdfs:label ?productlabel .
-			
 			[TP-03] %OfferXYZ% bsbm:vendor ?vendorURI .
 			[TP-04] ?vendorURI rdfs:label ?vendorname .
 			[TP-05] ?vendorURI foaf:homepage ?vendorhomepage .
-			
 			[TP-06] %OfferXYZ% bsbm:offerWebpage ?offerURL .
 			[TP-07] %OfferXYZ% bsbm:price ?price .
 			[TP-08] %OfferXYZ% bsbm:deliveryDays ?deliveryDays .
 			[TP-09] %OfferXYZ% bsbm:validTo ?validTo
 		}
-		   ---------------------------------------
-		 */
+		   ---------------------------------------*/
 			String rowKey = new String(value.getRow());
 			text.set(rowKey);
 			
-			// TP-09
-			if (rowKey.equals(ProductXYZ)) {
+			if (!rowKey.equals(OfferXYZ)) {
+				return;
+			}
+			ArrayList<KeyValue> keyValuesToTransmit = new ArrayList<KeyValue>();
+			List<KeyValue> productRow = value.list();
+			// TP-06, TP-07, TP-08, TP-09
+			boolean found1 = false;
+			boolean found2 = false;
+			boolean found3 = false;
+			boolean found4 = false;
+
+			for (KeyValue kv : productRow) {
+				if (Arrays.equals(kv.getValue(), "bsbm-voc_offerWebpage".getBytes())) {
+					keyValuesToTransmit.add(kv);
+					found1 = true;
+				} else if (Arrays.equals(kv.getValue(), "bsbm-voc_product".getBytes())) {
+					keyValuesToTransmit.add(kv);
+				} else if (Arrays.equals(kv.getValue(), "dc_publisher".getBytes())) {
+					keyValuesToTransmit.add(kv);
+				} else if (Arrays.equals(kv.getQualifier(), "bsbm-voc_price".getBytes())) {
+					keyValuesToTransmit.add(kv);
+					found2 = true;
+				} else if (Arrays.equals(kv.getQualifier(), "bsbm-voc_validTo".getBytes())) {
+					keyValuesToTransmit.add(kv);
+					found3 = true;
+				} else if (Arrays.equals(kv.getQualifier(), "bsbm-voc_deliveryDays".getBytes())) {
+					keyValuesToTransmit.add(kv);
+					found4 = true;
+				}
+			}
+			if (!found1 || !found2 || !found3 || !found4) {
 				return;
 			}
 			
-			ArrayList<KeyValue> keyValuesToTransmit = new ArrayList<KeyValue>();
-			List<KeyValue> productRow = value.list();
-			// TP-02
-			keyValuesToTransmit.addAll(SharedServices.getKeyValuesContainingPredicate(productRow, "bsbm-voc_productFeature"));
-			
-			boolean foundNumeric1 = false;
-			boolean foundNumeric2 = false;
-			
-			for (KeyValue kv : productRow) {
-				if (new String(kv.getQualifier()).equals("rdfs_label")) {
-					keyValuesToTransmit.add(kv);
-				}
-				// TP-04
-				if (new String(kv.getQualifier()).equals("bsbm-voc_productPropertyNumeric1")) {
-					keyValuesToTransmit.add(kv);
-					foundNumeric1 = true;
-				}
-				// TP-03
-				else if (new String(kv.getQualifier()).equals("bsbm-voc_productPropertyNumeric2")) {
-					keyValuesToTransmit.add(kv);
-					foundNumeric2 = true;
-				}
-			}
-			if (foundNumeric1 && foundNumeric2) {
-				// Write the output product key-value
-				context.write(text, new KeyValueArrayWritable(SharedServices.listToArray(keyValuesToTransmit)));
-			}
+			/*
+			 * [TP-01] %OfferXYZ% bsbm:product ?productURI .
+			   [TP-02] ?productURI rdfs:label ?productlabel .
+			 */
+			context.write(text, new KeyValueArrayWritable(SharedServices.listToArray(keyValuesToTransmit)));
 		}
 	}
 	
@@ -168,6 +179,7 @@ public class ReduceSideJoinBSBMQ12 {
 	public static class ReduceSideJoin_ReducerStage1 extends Reducer<Text, KeyValueArrayWritable, Text, Text>  {
 		
 	    HTable table;
+	    Text productKey = new Text();
 
 	    @Override
 	    protected void setup(Context context) throws IOException, InterruptedException {
@@ -176,124 +188,89 @@ public class ReduceSideJoinBSBMQ12 {
 	    }
 
 		public void reduce(Text key, Iterable<KeyValueArrayWritable> values, Context context) throws IOException, InterruptedException {
-			/* BERLIN SPARQL BENHCMARK QUERY 5
+			/* BERLIN SPARQL BENHCMARK QUERY 12
 			   ----------------------------------------
-			SELECT DISTINCT ?product ?productLabel
-			WHERE { 
-				[TP-01] ?product rdfs:label ?productLabel .
-				[TP-02] ?product bsbm:productFeature ?prodFeature .
-			 	[TP-03] ?product bsbm:productPropertyNumeric2 ?simProperty2 .
-			 	[TP-04] ?product bsbm:productPropertyNumeric1 ?simProperty1 .
-				[TP-05] %ProductXYZ% bsbm:productFeature ?prodFeature .
-				[TP-06] %ProductXYZ% bsbm:productPropertyNumeric1 ?origProperty1 .
-				[TP-07] %ProductXYZ% bsbm:productPropertyNumeric2 ?origProperty2 .
-				[TP-08] FILTER (?simProperty1 < (?origProperty1 + 120) && ?simProperty1 > (?origProperty1 – 120))
-				[TP-09] FILTER (%ProductXYZ% != ?product)
-				[TP-10] FILTER (?simProperty2 < (?origProperty2 + 170) && ?simProperty2 > (?origProperty2 – 170))
-			}
-			ORDER BY ?productLabel
-			LIMIT 5
-			   ---------------------------------------
-			 */
-			StringBuilder builder = new StringBuilder();
-			builder.append("\n");
-			// Check to see if this product has a similar feature with ProductXYZ
-			Get productXYZget = new Get(ProductXYZ.getBytes());
-			Result productXYZresult = table.get(productXYZget);
-			// Get list of ProductXYZ features
-			List<KeyValue> productXYZasList = productXYZresult.list();
-			List<KeyValue> productXYZkvs = SharedServices.getKeyValuesContainingPredicate(productXYZasList, "bsbm-voc_productFeature");
+		CONSTRUCT { %OfferXYZ% bsbm-export:product ?productURI .
+		 %OfferXYZ% bsbm-export:productlabel ?productlabel .
+		 %OfferXYZ% bsbm-export:vendor ?vendorname .
+		 %OfferXYZ% bsbm-export:vendorhomepage ?vendorhomepage . 
+		 %OfferXYZ% bsbm-export:offerURL ?offerURL .
+		 %OfferXYZ% bsbm-export:price ?price .
+		 %OfferXYZ% bsbm-export:deliveryDays ?deliveryDays .
+		 %OfferXYZ% bsbm-export:validuntil ?validTo } 
+		WHERE {
+			[TP-01] %OfferXYZ% bsbm:product ?productURI .
+			[TP-02] ?productURI rdfs:label ?productlabel .
+			[TP-03] %OfferXYZ% bsbm:vendor ?vendorURI .
+			[TP-04] ?vendorURI rdfs:label ?vendorname .
+			[TP-05] ?vendorURI foaf:homepage ?vendorhomepage .
+			[TP-06] %OfferXYZ% bsbm:offerWebpage ?offerURL .
+			[TP-07] %OfferXYZ% bsbm:price ?price .
+			[TP-08] %OfferXYZ% bsbm:deliveryDays ?deliveryDays .
+			[TP-09] %OfferXYZ% bsbm:validTo ?validTo
+		}
+			   --------------------------------------- */
 			
-			// Extract features as strings
-			List<String> productXYZfeatures = new ArrayList<String>();
-			for (KeyValue kv : productXYZkvs) {
-				productXYZfeatures.add(new String(kv.getQualifier()));;
-			}
-			// Make sure this product has at least one feature in common with ProductXYZ
-			KeyValue simProperty1KeyValue = null;
-			KeyValue simProperty2KeyValue = null;
-			boolean featureMatch = false;
+			List<KeyValue> finalKeyValues = new ArrayList<KeyValue>();
 			
+			// Find the keys for the product and the publisher/vendor
+			KeyValue kv_vendorURI = null;
+			KeyValue kv_productURI = null;
 			for (KeyValueArrayWritable array : values) {
-		        for (KeyValue kv : (KeyValue[]) array.toArray()) {
-		        	if (featureMatch == false && new String(kv.getValue()).equals("bsbm-voc_productFeature".getBytes())) {
-		        		if (productXYZfeatures.contains(new String(kv.getQualifier()))) {
-		        			featureMatch = true;
-		        		}
-		        	}
-		        	// Get the product label
-		        	// Check the column name/qualifier since these are literals
-		        	if (new String(kv.getQualifier()).equals("rdfs_label")) {
-		        		builder.append(SharedServices.keyValueToString(kv));
-			        	builder.append(SharedServices.SUBVALUE_DELIMITER);
-			        	builder.append("\n");
-		        	} else if (new String(kv.getQualifier()).equals("bsbm-voc_productPropertyNumeric1")) {
-		        		simProperty1KeyValue = kv;
-		        	} else if (new String(kv.getQualifier()).equals("bsbm-voc_productPropertyNumeric2")) {
-		        		simProperty2KeyValue = kv;
-		        	}
-		        }
-		    }
-			if (featureMatch == false) {
-				//return;
+				for (KeyValue kv : (KeyValue[]) array.toArray()) {
+					if (Arrays.equals(kv.getValue(),"bsbm-voc_product".getBytes())) {
+						kv_productURI = kv;
+						finalKeyValues.add(kv); // Since productURI is part of construct section of query
+					} else if (Arrays.equals(kv.getValue(),"dc_publisher".getBytes())) {
+						kv_vendorURI = kv;
+					} else {
+						finalKeyValues.add(kv);
+					}
+				}
 			}
 			
-			// Uncomment this to see the numeric values printed in the output file
-//			builder.append(SharedServices.keyValueToString(simProperty1KeyValue));
-//        	builder.append(SharedServices.SUBVALUE_DELIMITER);
-//        	builder.append("\n");
-//        	builder.append(SharedServices.keyValueToString(simProperty2KeyValue));
-//        	builder.append(SharedServices.SUBVALUE_DELIMITER);
-//        	builder.append("\n");
-					
-			// Check to see if the property numerics are similar
-			// TP-06 and TP-07
-			byte[] XYZnumeric1_bytes = productXYZresult.getValue(SharedServices.CF_AS_BYTES, "bsbm-voc_productPropertyNumeric1".getBytes());
-			byte[] XYZnumeric2_bytes = productXYZresult.getValue(SharedServices.CF_AS_BYTES, "bsbm-voc_productPropertyNumeric2".getBytes());
-			
-			int origProperty1 = -1;
-			int origProperty2 = -1;
-			try {
-				origProperty1 = ByteBuffer.wrap(XYZnumeric1_bytes).getInt();
-			} catch (NumberFormatException e) {
-				origProperty1 = -1;
-			}
-			try {
-				origProperty2 = ByteBuffer.wrap(XYZnumeric2_bytes).getInt();
-			} catch (NumberFormatException e) {
-				origProperty2 = -1;
-			}
-			// Convert them to ints so we can compare
-			int simProperty1 = -1;
-			int simProperty2 = -1;
-			try {
-				simProperty1 = ByteBuffer.wrap(simProperty1KeyValue.getValue()).getInt();
-			} catch (NumberFormatException e) {
-				simProperty1 = -1;
-			}
-			try {
-				simProperty2 = ByteBuffer.wrap(simProperty2KeyValue.getValue()).getInt();
-			} catch (NumberFormatException e) {
-				simProperty2 = -1;
-			}
 			/*
-			 * 	[TP-08] FILTER (?simProperty1 < (?origProperty1 + 120) && ?simProperty1 > (?origProperty1 – 120))
-				[TP-10] FILTER (?simProperty2 < (?origProperty2 + 170) && ?simProperty2 > (?origProperty2 – 170))
+			[TP-03] %OfferXYZ% bsbm:vendor ?vendorURI .
+			[TP-04] ?vendorURI rdfs:label ?vendorname .
+			[TP-05] ?vendorURI foaf:homepage ?vendorhomepage .
 			 */
-			if (!(simProperty1 < (origProperty1 + 120))) {
-				return;
+			Result vendorResult = table.get(new Get(kv_vendorURI.getQualifier()));
+			for (KeyValue kv : vendorResult.list()) {
+				// TP-04
+				if (Arrays.equals(kv.getQualifier(),"rdfs_label".getBytes())) {
+					finalKeyValues.add(kv);
+				}
+				// TP-05
+				else if (Arrays.equals(kv.getValue(),"foaf_homepage".getBytes())) {
+					finalKeyValues.add(kv);
+				}
 			}
-			if (!(simProperty1 > (origProperty1 - 120))) {
-				return;
+			
+			/*
+			 [TP-01] %OfferXYZ% bsbm:product ?productURI .
+			[TP-02] ?productURI rdfs:label ?productlabel .
+			 */
+			Result productResult = table.get(new Get(kv_productURI.getQualifier()));
+			
+			for (KeyValue kv : productResult.list()) {
+				// TP-02
+				if (Arrays.equals(kv.getQualifier(),"rdfs_label".getBytes())) {
+					finalKeyValues.add(kv);
+				}
 			}
-			if (!(simProperty2 < (origProperty2 + 170))) {
-				return;
-			}
-			if (!(simProperty2 > (origProperty2 - 170))) {
-				return;
-			}
-			// If the code has made it to this point, then we can output the data
-			// Which is only the product (row key) and it's label (added to StringBuilder above)
+			// Format and output the values
+			StringBuilder builder = new StringBuilder();
+	    	builder.append("\n");
+	        for (KeyValue kv : finalKeyValues) {
+	        	String[] triple = null;
+	        	try {
+					triple = SharedServices.keyValueToTripleString(kv);
+				} catch (ClassNotFoundException e) {
+					e.printStackTrace();
+				}
+	        	builder.append(triple[0] + "\t" + triple[1] + "\t" + triple[2] +"\n");
+	        }
+
 			context.write(key, new Text(builder.toString()));
 		}
 	}	    
