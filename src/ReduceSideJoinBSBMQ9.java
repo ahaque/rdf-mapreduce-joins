@@ -5,13 +5,8 @@
  */
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.text.DateFormat;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
 
@@ -26,7 +21,6 @@ import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.mapreduce.TableMapReduceUtil;
 import org.apache.hadoop.hbase.mapreduce.TableMapper;
-import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Reducer;
@@ -112,8 +106,8 @@ public class ReduceSideJoinBSBMQ9 {
 				[TP-01] %ReviewXYZ% rev:reviewer ?x
 			}
 		   ---------------------------------------*/
-			// TP-01
 			String rowKey = new String(value.getRow());
+			
 			if (!rowKey.equals(ReviewXYZ)) {
 				return;
 			}
@@ -132,7 +126,6 @@ public class ReduceSideJoinBSBMQ9 {
 	public static class ReduceSideJoin_ReducerStage1 extends Reducer<Text, KeyValueArrayWritable, Text, Text>  {
 		
 	    HTable table;
-	    Text productKey = new Text();
 
 	    @Override
 	    protected void setup(Context context) throws IOException, InterruptedException {
@@ -146,7 +139,7 @@ public class ReduceSideJoinBSBMQ9 {
 			DESCRIBE ?x
 			WHERE {
 				[TP-01] %ReviewXYZ% rev:reviewer ?x
-			} --------------------------------------- */
+			}--------------------------------------- */
 			
 			List<KeyValue> finalKeyValues = new ArrayList<KeyValue>();
 			// Get the unique reviewers
