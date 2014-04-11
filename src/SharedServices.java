@@ -7,7 +7,11 @@
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.text.DateFormat;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -40,6 +44,9 @@ public class SharedServices {
 	public static char KEY_VALUE_DELIMITER = (char) 126;
 	// Separates qualifier, timestamp, etc. in intermediate MapReduce files
 	public static char SUBVALUE_DELIMITER = (char) 127;
+	
+	// Used to convert a DateTime string to a long
+	private static DateFormat format = new SimpleDateFormat("yyyy-MM-dd hh-mm-ss");
 	
 	// Literal type mapping
 	private static final HashMap<String, SharedServices.Type> literalTypeMap = new HashMap<String, SharedServices.Type>() {
@@ -278,5 +285,25 @@ public class SharedServices {
 				Long.parseLong(tuple[3]),
 				correctObjectFormat
 				);
+	}
+	
+	/**
+	 * Takes an input DateTime string and returns a long DateTime
+	 * @param line - input DateTime string with a 'T' separating the date from the time
+	 * @return line in long format
+	 */
+	public static long dateTimeStringToLong(String line) {
+		
+		String date = line.substring(0, line.indexOf('T'));
+		String time = line.substring(line.indexOf('T') + 1, line.length());
+		String formattedValidTo = date + " " + time;
+
+		Date datem = null;
+		try {
+			datem = format.parse(formattedValidTo);
+		} catch (ParseException e) {
+			e.printStackTrace();
+		}
+		return datem.getTime();
 	}
 }
