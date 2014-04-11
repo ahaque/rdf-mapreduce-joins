@@ -1,13 +1,18 @@
 /**
- * Reduce Side Join BSBM Q10
+ * Reduce Side Join BSBM Q9
  * @date April 2013
  * @author Albert Haque
  */
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.text.DateFormat;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Date;
+import java.util.HashSet;
 import java.util.List;
 
 import org.apache.hadoop.conf.Configuration;
@@ -21,17 +26,17 @@ import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.mapreduce.TableMapReduceUtil;
 import org.apache.hadoop.hbase.mapreduce.TableMapper;
+import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 
-public class ReduceSideJoinBSBMQ10 {
+public class ReduceSideJoinBSBMQ9 {
 	
 	// Begin Query Information
-	private static String ProductXYZ = "bsbm-inst_dataFromProducer483/Product23824";
-	private static String CurrentDateString = "2008-06-01T00-00-00";
+	private static String ReviewXYZ = "bsbm-inst_dataFromRatingSite28/Review277734";
 	// End Query Information
 			
 	public static void main(String[] args) throws ClassNotFoundException, IOException, InterruptedException {
@@ -64,7 +69,7 @@ public class ReduceSideJoinBSBMQ10 {
 		 */
 	    Scan scan1 = new Scan();		
 		Job job1 = new Job(hConf);
-		job1.setJobName("BSBM-Q10-ReduceSideJoin");
+		job1.setJobName("BSBM-Q9-ReduceSideJoin");
 		job1.setJarByClass(ReduceSideJoinBSBMQ2.class);
 		// Change caching and number of time stamps to speed up the scan
 		scan1.setCaching(500);        
@@ -86,7 +91,7 @@ public class ReduceSideJoinBSBMQ10 {
 		
 		job1.setOutputFormatClass(TextOutputFormat.class);
 		//job1.setNumReduceTasks(1);  // Uncomment this if running into problems on 2+ node cluster
-		FileOutputFormat.setOutputPath(job1, new Path("output/BSBMQ10"));
+		FileOutputFormat.setOutputPath(job1, new Path("output/BSBMQ9"));
 
 		try {
 			job1.waitForCompletion(true);
@@ -99,66 +104,25 @@ public class ReduceSideJoinBSBMQ10 {
 	
 	public static class ReduceSideJoin_MapperStage1 extends TableMapper<Text, KeyValueArrayWritable> {
 		
-		private Text text = new Text();
-
 		public void map(ImmutableBytesWritable row, Result value, Context context) throws InterruptedException, IOException {
-		/* BERLIN SPARQL BENHCMARK QUERY 10
-		   ----------------------------------------
-		SELECT DISTINCT ?offer ?price
-		WHERE {
-			[TP-01] ?offer bsbm:product %ProductXYZ% .
-			[TP-02] ?offer bsbm:vendor ?vendor .
-			[TP-03] ?offer dc:publisher ?vendor .
-			[TP-04] ?vendor bsbm:country <http://downlode.org/rdf/iso-3166/countries#US> .
-			[TP-05] ?offer bsbm:deliveryDays ?deliveryDays .
-			[TP-06] FILTER (?deliveryDays <= 3)
-			[TP-07] ?offer bsbm:price ?price .
-			[TP-08] ?offer bsbm:validTo ?date .
-			[TP-09] FILTER (?date > %currentDate% )
-		}
-		ORDER BY xsd:double(str(?price))
-		LIMIT 10
-		   ---------------------------------------*/
-			String rowKey = new String(value.getRow());
-			text.set(rowKey);
-			
-			ArrayList<KeyValue> keyValuesToTransmit = new ArrayList<KeyValue>();
-			List<KeyValue> offerRow = value.list();
-			
-			boolean offerForProductXYZ = false;
-			for (KeyValue kv : offerRow) {
-				// TP-01
-				if (Arrays.equals(kv.getValue(), "bsbm-voc_product".getBytes())) {
-					if (!Arrays.equals(kv.getQualifier(), ProductXYZ.getBytes())) {
-						return;
-					}
-					offerForProductXYZ = true;
-				}
-				// TP-05 and TP-06
-				if (Arrays.equals(kv.getQualifier(), "bsbm-voc_deliveryDays".getBytes())) {
-					int number = ByteBuffer.wrap(kv.getValue()).getInt();
-					if (number > 3) {
-						return;
-					}
-					keyValuesToTransmit.add(kv);
-				}
-				// TP-02 and TP-03
-				if (Arrays.equals(kv.getValue(), "dc_publisher".getBytes())) {
-					keyValuesToTransmit.add(kv);
-				}
-				// TP-07
-				if (Arrays.equals(kv.getQualifier(), "bsbm-voc_price".getBytes())) {
-					keyValuesToTransmit.add(kv);
-				}
-				// TP-08
-				if (Arrays.equals(kv.getQualifier(), "bsbm-voc_validTo".getBytes())) {
-					keyValuesToTransmit.add(kv);
-				}
+		/* BERLIN SPARQL BENHCMARK QUERY 9
+		   ----------------------------------------			
+			DESCRIBE ?x
+			WHERE {
+				[TP-01] %ReviewXYZ% rev:reviewer ?x
 			}
-			if (!offerForProductXYZ) {
+		   ---------------------------------------*/
+			// TP-01
+			String rowKey = new String(value.getRow());
+			if (!rowKey.equals(ReviewXYZ)) {
 				return;
 			}
-			context.write(text, new KeyValueArrayWritable(SharedServices.listToArray(keyValuesToTransmit)));
+			// TP-01
+			for (KeyValue kv : SharedServices.getKeyValuesContainingPredicate(value.list(), "rev_reviewer")) {
+				List<KeyValue> oneReviewerKvs = new ArrayList<KeyValue>();
+				oneReviewerKvs.add(kv);
+				context.write(new Text(new String(kv.getRow())), new KeyValueArrayWritable(SharedServices.listToArray(oneReviewerKvs)));
+			}
 		}
 	}
 	
@@ -169,68 +133,35 @@ public class ReduceSideJoinBSBMQ10 {
 		
 	    HTable table;
 	    Text productKey = new Text();
-	    long currentDate = -1L;
 
 	    @Override
 	    protected void setup(Context context) throws IOException, InterruptedException {
 	      Configuration conf = context.getConfiguration();
 	      table = new HTable(conf, conf.get("scan.table"));
-	      currentDate = SharedServices.dateTimeStringToLong(CurrentDateString);
 	    }
 
 		public void reduce(Text key, Iterable<KeyValueArrayWritable> values, Context context) throws IOException, InterruptedException {
 			/* BERLIN SPARQL BENHCMARK QUERY 10
 			   ----------------------------------------
-		SELECT DISTINCT ?offer ?price
-		WHERE {
-			[TP-01] ?offer bsbm:product %ProductXYZ% .
-			[TP-02] ?offer bsbm:vendor ?vendor .
-			[TP-03] ?offer dc:publisher ?vendor .
-			[TP-04] ?vendor bsbm:country <http://downlode.org/rdf/iso-3166/countries#US> .
-			[TP-05] ?offer bsbm:deliveryDays ?deliveryDays .
-			[TP-06] FILTER (?deliveryDays <= 3)
-			[TP-07] ?offer bsbm:price ?price .
-			[TP-08] ?offer bsbm:validTo ?date .
-			[TP-09] FILTER (?date > %currentDate% )
-		}
-		ORDER BY xsd:double(str(?price))
-		LIMIT 10
-			   --------------------------------------- */
+			DESCRIBE ?x
+			WHERE {
+				[TP-01] %ReviewXYZ% rev:reviewer ?x
+			} --------------------------------------- */
 			
 			List<KeyValue> finalKeyValues = new ArrayList<KeyValue>();
-			
-			// Find the keys for the vendor/publisher
-			KeyValue kv_vendorURI = null;
-			KeyValue kv_validTo = null;
+			// Get the unique reviewers
+			HashSet<KeyValue> reviewerKvSet = new HashSet<KeyValue>();
 			for (KeyValueArrayWritable array : values) {
 				for (KeyValue kv : (KeyValue[]) array.toArray()) {
-					if (Arrays.equals(kv.getValue(),"dc_publisher".getBytes())) {
-						kv_vendorURI = kv;
-						finalKeyValues.add(kv);
-					} else if (Arrays.equals(kv.getQualifier(),"bsbm-voc_validTo".getBytes())) {
-						kv_validTo = kv;
-						finalKeyValues.add(kv);
-					} else {
-						finalKeyValues.add(kv);
+					if (Arrays.equals(kv.getValue(),"rev_reviewer".getBytes())) {
+						reviewerKvSet.add(kv);
 					}
 				}
 			}
-			
-			// TP-09
-			long validTo = 1L;
-			try{
-				validTo = SharedServices.dateTimeStringToLong(new String(kv_validTo.getValue()));
-			} catch (IndexOutOfBoundsException e) { }
-			// TP-09
-			if (validTo <= currentDate) {
-				return;
-			}
-			
-			Result vendorResult = table.get(new Get(kv_vendorURI.getQualifier()));
-			// TP-04
-			byte[] vendorCountry = vendorResult.getValue(SharedServices.CF_AS_BYTES, "<http://downlode.org/rdf/iso-3166/countries#US>".getBytes());
-			if (!Arrays.equals(vendorCountry,"bsbm-voc_country".getBytes())) {
-				return;
+			// For each unique reviewer (should only be 1) get all the info about it
+			for (KeyValue kv : reviewerKvSet) {
+				Result reviewerResult = table.get(new Get(kv.getQualifier()));
+				finalKeyValues.addAll(reviewerResult.list());
 			}
 			
 			// Format and output the values
