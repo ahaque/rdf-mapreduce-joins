@@ -1,13 +1,12 @@
 /**
- * Reduce Side Join BSBM Q2
- * @date March 2013
+ * Reduce Side Join BSBM Q5
+ * @date April 2013
  * @author Albert Haque
  */
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.LinkedList;
 import java.util.List;
 
 import org.apache.hadoop.conf.Configuration;
@@ -26,7 +25,6 @@ import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
-import org.mortbay.log.Log;
 
 public class ReduceSideJoinBSBMQ5 {
 	
@@ -135,7 +133,11 @@ public class ReduceSideJoinBSBMQ5 {
 			
 			boolean foundNumeric1 = false;
 			boolean foundNumeric2 = false;
+			
 			for (KeyValue kv : productRow) {
+				if (new String(kv.getQualifier()).equals("rdfs_label")) {
+					keyValuesToTransmit.add(kv);
+				}
 				// TP-04
 				if (new String(kv.getQualifier()).equals("bsbm-voc_productPropertyNumeric1")) {
 					keyValuesToTransmit.add(kv);
@@ -188,26 +190,55 @@ public class ReduceSideJoinBSBMQ5 {
 			   ---------------------------------------
 			 */
 			StringBuilder builder = new StringBuilder();
+			builder.append("\n");
 			// Check to see if this product has a similar feature with ProductXYZ
 			Get productXYZget = new Get(ProductXYZ.getBytes());
 			Result productXYZresult = table.get(productXYZget);
 			// Get list of ProductXYZ features
 			List<KeyValue> productXYZasList = productXYZresult.list();
-			List<KeyValue> productXYZfeatures = SharedServices.getKeyValuesContainingPredicate(productXYZasList, "bsbm-voc_productFeature");
+			List<KeyValue> productXYZkvs = SharedServices.getKeyValuesContainingPredicate(productXYZasList, "bsbm-voc_productFeature");
+			
+			// Extract features as strings
+			List<String> productXYZfeatures = new ArrayList<String>();
+			for (KeyValue kv : productXYZkvs) {
+				productXYZfeatures.add(new String(kv.getQualifier()));;
+			}
 			// Make sure this product has at least one feature in common with ProductXYZ
-			boolean productMatch = false;
+			KeyValue simProperty1KeyValue = null;
+			KeyValue simProperty2KeyValue = null;
+			boolean featureMatch = false;
+			
 			for (KeyValueArrayWritable array : values) {
 		        for (KeyValue kv : (KeyValue[]) array.toArray()) {
-		        	if (new String(kv.getValue()).equals("bsbm-voc_productFeature".getBytes())) {
+		        	if (featureMatch == false && new String(kv.getValue()).equals("bsbm-voc_productFeature".getBytes())) {
 		        		if (productXYZfeatures.contains(new String(kv.getQualifier()))) {
-		        			productMatch = true;
+		        			featureMatch = true;
 		        		}
+		        	}
+		        	// Get the product label
+		        	// Check the column name/qualifier since these are literals
+		        	if (new String(kv.getQualifier()).equals("rdfs_label")) {
+		        		builder.append(SharedServices.keyValueToString(kv));
+			        	builder.append(SharedServices.SUBVALUE_DELIMITER);
+			        	builder.append("\n");
+		        	} else if (new String(kv.getQualifier()).equals("bsbm-voc_productPropertyNumeric1")) {
+		        		simProperty1KeyValue = kv;
+		        	} else if (new String(kv.getQualifier()).equals("bsbm-voc_productPropertyNumeric2")) {
+		        		simProperty2KeyValue = kv;
 		        	}
 		        }
 		    }
-			if (productMatch == false) {
-				return;
+			if (featureMatch == false) {
+				//return;
 			}
+			
+			// Uncomment this to see the numeric values printed in the output file
+//			builder.append(SharedServices.keyValueToString(simProperty1KeyValue));
+//        	builder.append(SharedServices.SUBVALUE_DELIMITER);
+//        	builder.append("\n");
+//        	builder.append(SharedServices.keyValueToString(simProperty2KeyValue));
+//        	builder.append(SharedServices.SUBVALUE_DELIMITER);
+//        	builder.append("\n");
 					
 			// Check to see if the property numerics are similar
 			// TP-06 and TP-07
@@ -226,26 +257,6 @@ public class ReduceSideJoinBSBMQ5 {
 			} catch (NumberFormatException e) {
 				origProperty2 = -1;
 			}
-			
-			// Get the values from this current product (not ProductXYZ)
-			KeyValue simProperty1KeyValue = null;
-			KeyValue simProperty2KeyValue = null;
-			for (KeyValueArrayWritable array : values) {
-		        for (KeyValue kv : (KeyValue[]) array.toArray()) {
-		        	// Get the product label
-		        	// Check the column name/qualifier since these are literals
-		        	if (new String(kv.getQualifier()).equals("rdfs_label")) {
-		        		builder.append(SharedServices.keyValueToString(kv));
-			        	builder.append(SharedServices.SUBVALUE_DELIMITER);
-			        	builder.append("\n");
-		        	}
-		        	if (new String(kv.getQualifier()).equals("bsbm-voc_productPropertyNumeric1")) {
-		        		simProperty1KeyValue = kv;
-		        	} else if (new String(kv.getQualifier()).equals("bsbm-voc_productPropertyNumeric2")) {
-		        		simProperty2KeyValue = kv;
-		        	}
-		        }
-		    }
 			// Convert them to ints so we can compare
 			int simProperty1 = -1;
 			int simProperty2 = -1;
