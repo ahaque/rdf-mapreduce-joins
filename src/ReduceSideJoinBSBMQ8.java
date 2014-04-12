@@ -82,8 +82,8 @@ public class ReduceSideJoinBSBMQ8 {
 				job1);
 
 		// Reducer settings
-		//job1.setReducerClass(ReduceSideJoin_ReducerStage1.class);   
-		job1.setReducerClass(SharedServices.ReduceSideJoin_Reducer.class);   
+		job1.setReducerClass(ReduceSideJoin_ReducerStage1.class);   
+		//job1.setReducerClass(SharedServices.ReduceSideJoin_Reducer.class);   
 		
 		job1.setOutputFormatClass(TextOutputFormat.class);
 		//job1.setNumReduceTasks(1);  // Uncomment this if running into problems on 2+ node cluster
@@ -127,16 +127,16 @@ public class ReduceSideJoinBSBMQ8 {
 			
 			ArrayList<KeyValue> keyValuesToTransmit = new ArrayList<KeyValue>();
 			List<KeyValue> reviewRow = value.list();
+			byte[] predicate = value.getValue(SharedServices.CF_AS_BYTES, ProductXYZ.getBytes());
+			if (!Arrays.equals(predicate, "bsbm-voc_reviewFor".getBytes())) {
+				return;
+			}
 			
-			boolean reviewForProductXYZ = false;
 			int requiredColumns = 0;
 			for (KeyValue kv : reviewRow) {
 				// TP-01
 				if (Arrays.equals(kv.getValue(), "bsbm-voc_reviewFor".getBytes())) {
-					if (!Arrays.equals(kv.getQualifier(), ProductXYZ.getBytes())) {
-						return;
-					}
-					reviewForProductXYZ = true;
+					keyValuesToTransmit.add(kv);
 					requiredColumns++;
 				}
 				// TP-02
@@ -151,7 +151,7 @@ public class ReduceSideJoinBSBMQ8 {
 				}
 				// TP-04
 				else if (Arrays.equals(kv.getValue(), "rdfs_lang".getBytes())) {
-					if (!Arrays.equals(kv.getQualifier(), "@EN".getBytes())) {
+					if (!Arrays.equals(kv.getQualifier(), "@en".getBytes())) {
 						return;
 					}
 					keyValuesToTransmit.add(kv);
@@ -181,7 +181,7 @@ public class ReduceSideJoinBSBMQ8 {
 					keyValuesToTransmit.add(kv);
 				}
 			}
-			if (requiredColumns < 6 || !reviewForProductXYZ) {
+			if (requiredColumns < 6) {
 				return;
 			}
 			context.write(text, new KeyValueArrayWritable(SharedServices.listToArray(keyValuesToTransmit)));
