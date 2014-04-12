@@ -103,7 +103,7 @@ public class ReduceSideJoinBSBMQ8 {
 		private Text text = new Text();
 		
 		public void map(ImmutableBytesWritable row, Result value, Context context) throws InterruptedException, IOException {
-		/* BERLIN SPARQL BENHCMARK QUERY 10
+		/* BERLIN SPARQL BENHCMARK QUERY 8
 		   ----------------------------------------
 			SELECT ?title ?text ?reviewDate ?reviewer ?reviewerName ?rating1 ?rating2 ?rating3 ?rating4 
 			WHERE { 
@@ -202,7 +202,7 @@ public class ReduceSideJoinBSBMQ8 {
 	    }
 
 		public void reduce(Text key, Iterable<KeyValueArrayWritable> values, Context context) throws IOException, InterruptedException {
-			/* BERLIN SPARQL BENHCMARK QUERY 10
+			/* BERLIN SPARQL BENHCMARK QUERY 8
 			   ----------------------------------------
 			SELECT ?title ?text ?reviewDate ?reviewer ?reviewerName ?rating1 ?rating2 ?rating3 ?rating4 
 			WHERE { 

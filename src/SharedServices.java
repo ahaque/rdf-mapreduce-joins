@@ -46,9 +46,7 @@ public class SharedServices {
 	public static char KEY_VALUE_DELIMITER = (char) 126;
 	// Separates qualifier, timestamp, etc. in intermediate MapReduce files
 	public static char SUBVALUE_DELIMITER = (char) 127;
-	
-	
-	
+
 	// Literal type mapping
 	private static final HashMap<String, SharedServices.Type> literalTypeMap = new HashMap<String, SharedServices.Type>() {
 		private static final long serialVersionUID = 5450689415960928404L;
@@ -76,6 +74,10 @@ public class SharedServices {
 		put("bsbm-voc_validTo", SharedServices.Type.DATETIME);
 		put("bsbm-voc_deliveryDays", SharedServices.Type.INT);
 		put("bsbm-voc_reviewDate", SharedServices.Type.DATE);
+		put("bsbm-voc_rating1", SharedServices.Type.INT);
+		put("bsbm-voc_rating2", SharedServices.Type.INT);
+		put("bsbm-voc_rating3", SharedServices.Type.INT);
+		put("bsbm-voc_rating4", SharedServices.Type.INT);
 	}};
 	
 	/*
@@ -117,7 +119,7 @@ public class SharedServices {
     	 * 1. Use the column as the predicate
     	 * 2. Convert byte arrays to double/string/data format
     	 */	
-    	String columnName = new String(kv.getBuffer(), kv.getQualifierOffset(), kv.getQualifierLength());
+    	String columnName = new String(kv.getQualifier());
     	// integer literals
     	if (literalTypeMap.get(columnName) == SharedServices.Type.INT) {
     		byte[] rawBytes = kv.getValue();
@@ -246,7 +248,6 @@ public class SharedServices {
 		} else {
 			result = new String(kv.getValue());
 		}
-		Log.info("Mapper Output: " + result);
     	builder.append(result);
     	return builder.toString();
 	}
