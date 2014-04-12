@@ -5,13 +5,10 @@
  */
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hbase.HBaseConfiguration;
@@ -66,7 +63,7 @@ public class ReduceSideJoinBSBMQ8 {
 	    Scan scan1 = new Scan();		
 		Job job1 = new Job(hConf);
 		job1.setJobName("BSBM-Q8-ReduceSideJoin");
-		job1.setJarByClass(ReduceSideJoinBSBMQ2.class);
+		job1.setJarByClass(ReduceSideJoinBSBMQ8.class);
 		// Change caching and number of time stamps to speed up the scan
 		scan1.setCaching(500);        
 		scan1.setMaxVersions(200);

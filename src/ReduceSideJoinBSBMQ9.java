@@ -64,7 +64,7 @@ public class ReduceSideJoinBSBMQ9 {
 	    Scan scan1 = new Scan();		
 		Job job1 = new Job(hConf);
 		job1.setJobName("BSBM-Q9-ReduceSideJoin");
-		job1.setJarByClass(ReduceSideJoinBSBMQ2.class);
+		job1.setJarByClass(ReduceSideJoinBSBMQ9.class);
 		// Change caching and number of time stamps to speed up the scan
 		scan1.setCaching(500);        
 		scan1.setMaxVersions(200);

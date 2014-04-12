@@ -47,7 +47,6 @@ public class ReduceSideJoinBSBMQ2 {
 	// End Query Information
 			
 	public static void main(String[] args) throws ClassNotFoundException, IOException, InterruptedException {
-
 		// Zookeeper quorum is usually the same as the HBase master node
 		String USAGE_MSG = "Arguments: <table name> <zookeeper quorum>";
 
