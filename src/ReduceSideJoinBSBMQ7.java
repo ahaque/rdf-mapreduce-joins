@@ -225,6 +225,14 @@ public class ReduceSideJoinBSBMQ7 {
 		public void reduce(Text key, Iterable<KeyValueArrayWritable> values, Context context) throws IOException, InterruptedException {
 			
 			List<KeyValue> finalKeyValues = new ArrayList<KeyValue>();
+			// TP-00
+			Result productResult = table.get(new Get(ProductXYZ.getBytes()));
+			for (KeyValue kv : productResult.list()) {
+				if (Arrays.equals(kv.getQualifier(), "rdfs_label".getBytes())) {
+					finalKeyValues.add(kv);
+					break;
+				}
+			}
 			
 			boolean isReview = false;
 			boolean rowTypeAssigned = false;
@@ -267,22 +275,13 @@ public class ReduceSideJoinBSBMQ7 {
 					if (Arrays.equals(kv.getQualifier(), "rdfs_label".getBytes())) {
 						finalKeyValues.add(kv);
 					} else if (Arrays.equals(kv.getValue(), "bsbm-voc_country".getBytes())) {
-						if (!Arrays.equals(kv.getQualifier(), "<http://downlode.org/rdf/iso-3166/countries#DE>".getBytes())) {
-							return;
-						}
+//						if (!Arrays.equals(kv.getQualifier(), "<http://downlode.org/rdf/iso-3166/countries#DE>".getBytes())) {
+//							return;
+//						}
 						finalKeyValues.add(kv);
 					}
 				}
 			}
-			
-//			// TP-00
-//			Result productResult = table.get(new Get(ProductXYZ.getBytes()));
-//			for (KeyValue kv : productResult.list()) {
-//				if (Arrays.equals(kv.getQualifier(), "rdfs_label".getBytes())) {
-//					finalKeyValues.add(kv);
-//					break;
-//				}
-//			}
 			
 			// Format and output the values
 			StringBuilder builder = new StringBuilder();
