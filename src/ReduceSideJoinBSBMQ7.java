@@ -225,50 +225,18 @@ public class ReduceSideJoinBSBMQ7 {
 		public void reduce(Text key, Iterable<KeyValueArrayWritable> values, Context context) throws IOException, InterruptedException {
 			
 			List<KeyValue> finalKeyValues = new ArrayList<KeyValue>();
-			String rowType = "";
+			
 			boolean isReview = false;
-			boolean isOffer = false;
 			boolean rowTypeAssigned = false;
 			for (KeyValueArrayWritable array : values) {
 				for (KeyValue kv : (KeyValue[]) array.toArray()) {
-					if (!rowTypeAssigned && new String(kv.getRow()).contains("Offer")) {
-						isOffer = true;
-						rowTypeAssigned = true;
-					} else if (!rowTypeAssigned && new String(kv.getRow()).contains("Review")) {
+					if (!rowTypeAssigned && new String(kv.getRow()).contains("Review")) {
 						isReview = true;
 						rowTypeAssigned = true;
 					}
 					finalKeyValues.add(kv);
 				}
 			}
-		
-			if (isOffer) {
-				Result vendorResult = null;
-				for (KeyValue kv : finalKeyValues) {
-					if (Arrays.equals(kv.getValue(), "dc_publisher".getBytes())) {
-						vendorResult = table.get(new Get(kv.getQualifier()));
-						break;
-					}
-				}
-				
-				// TP-05
-				byte[] countryPredicate = vendorResult.getValue(SharedServices.CF_AS_BYTES, "<http://downlode.org/rdf/iso-3166/countries#DE>".getBytes());
-				if (countryPredicate == null) {
-					return;
-				}
-//				if (!Arrays.equals(countryPredicate, "bsbm-voc_country".getBytes())) {
-//					return;
-//				}
-				for (KeyValue kv : vendorResult.list()) {
-					// TP-04
-					if (Arrays.equals(kv.getQualifier(), "rdfs_label".getBytes())) {
-						finalKeyValues.add(kv);
-					} else if (Arrays.equals(kv.getValue(), "bsbm-voc_country".getBytes())) {
-						finalKeyValues.add(kv);
-					}
-				}
-			}
-			
 			
 			if (isReview) {
 				Result reviewerResult = null;
@@ -284,7 +252,37 @@ public class ReduceSideJoinBSBMQ7 {
 						finalKeyValues.add(kv);
 					}
 				}
+			} else {
+				Result vendorResult = null;
+				for (KeyValue kv : finalKeyValues) {
+					if (Arrays.equals(kv.getValue(), "dc_publisher".getBytes())) {
+						vendorResult = table.get(new Get(kv.getQualifier()));
+						break;
+					}
+				}
+				
+				// TP-05
+				for (KeyValue kv : vendorResult.list()) {
+					// TP-04
+					if (Arrays.equals(kv.getQualifier(), "rdfs_label".getBytes())) {
+						finalKeyValues.add(kv);
+					} else if (Arrays.equals(kv.getValue(), "bsbm-voc_country".getBytes())) {
+						if (!Arrays.equals(kv.getQualifier(), "<http://downlode.org/rdf/iso-3166/countries#DE>".getBytes())) {
+							return;
+						}
+						finalKeyValues.add(kv);
+					}
+				}
 			}
+			
+//			// TP-00
+//			Result productResult = table.get(new Get(ProductXYZ.getBytes()));
+//			for (KeyValue kv : productResult.list()) {
+//				if (Arrays.equals(kv.getQualifier(), "rdfs_label".getBytes())) {
+//					finalKeyValues.add(kv);
+//					break;
+//				}
+//			}
 			
 			// Format and output the values
 			StringBuilder builder = new StringBuilder();
