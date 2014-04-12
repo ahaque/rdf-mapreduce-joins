@@ -29,6 +29,8 @@ public class SharedServices {
 	// Literal DATE and DATETIME formats
 	private static DateTimeFormatter format1 = DateTimeFormat.forPattern("yyyy-MM-dd");
 	private static DateTimeFormatter format2 = DateTimeFormat.forPattern("HH-mm-ss");
+	// Used to convert a DateTime string to a long
+	private static DateFormat fullDateTimeFormat = new SimpleDateFormat("yyyy-MM-dd hh-mm-ss");
 	
 	// Possible Literal types
 	private static enum Type {
@@ -45,8 +47,7 @@ public class SharedServices {
 	// Separates qualifier, timestamp, etc. in intermediate MapReduce files
 	public static char SUBVALUE_DELIMITER = (char) 127;
 	
-	// Used to convert a DateTime string to a long
-	private static DateFormat format = new SimpleDateFormat("yyyy-MM-dd hh-mm-ss");
+	
 	
 	// Literal type mapping
 	private static final HashMap<String, SharedServices.Type> literalTypeMap = new HashMap<String, SharedServices.Type>() {
@@ -208,7 +209,6 @@ public class SharedServices {
 		List<KeyValue> keyValuesToReturn = new LinkedList<KeyValue>();
 		for (KeyValue kv : list) {
 			if (Arrays.equals(kv.getValue(), predicate.getBytes())) {
-			//if (new String(kv.getValue()).equals(predicate)) {
 				keyValuesToReturn.add(kv);
 			}
 		}
@@ -300,7 +300,7 @@ public class SharedServices {
 
 		Date datem = null;
 		try {
-			datem = format.parse(formattedValidTo);
+			datem = fullDateTimeFormat.parse(formattedValidTo);
 		} catch (ParseException e) {
 			e.printStackTrace();
 		}

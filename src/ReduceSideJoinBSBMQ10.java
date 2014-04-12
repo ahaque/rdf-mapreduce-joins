@@ -1,5 +1,5 @@
 /**
- * Reduce Side Join BSBM Q10
+ * Reduce Side Join BSBM Q12
  * @date April 2013
  * @author Albert Haque
  */
@@ -10,6 +10,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hbase.HBaseConfiguration;
@@ -30,7 +32,7 @@ import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 public class ReduceSideJoinBSBMQ10 {
 	
 	// Begin Query Information
-	private static String ProductXYZ = "bsbm-inst_dataFromProducer483/Product23824";
+	private static String ProductXYZ = "bsbm-inst_dataFromProducer284/Product13895";
 	private static String CurrentDateString = "2008-06-01T00-00-00";
 	// End Query Information
 			
@@ -81,8 +83,8 @@ public class ReduceSideJoinBSBMQ10 {
 				job1);
 
 		// Reducer settings
-		job1.setReducerClass(ReduceSideJoin_ReducerStage1.class);   
-		//job1.setReducerClass(SharedServices.ReduceSideJoin_Reducer.class);   
+		//job1.setReducerClass(ReduceSideJoin_ReducerStage1.class);   
+		job1.setReducerClass(SharedServices.ReduceSideJoin_Reducer.class);   
 		
 		job1.setOutputFormatClass(TextOutputFormat.class);
 		//job1.setNumReduceTasks(1);  // Uncomment this if running into problems on 2+ node cluster
@@ -100,7 +102,7 @@ public class ReduceSideJoinBSBMQ10 {
 	public static class ReduceSideJoin_MapperStage1 extends TableMapper<Text, KeyValueArrayWritable> {
 		
 		private Text text = new Text();
-
+		
 		public void map(ImmutableBytesWritable row, Result value, Context context) throws InterruptedException, IOException {
 		/* BERLIN SPARQL BENHCMARK QUERY 10
 		   ----------------------------------------
@@ -168,8 +170,8 @@ public class ReduceSideJoinBSBMQ10 {
 	public static class ReduceSideJoin_ReducerStage1 extends Reducer<Text, KeyValueArrayWritable, Text, Text>  {
 		
 	    HTable table;
-	    Text productKey = new Text();
-	    long currentDate = -1L;
+	    long currentDate;
+	    private static final Log LOG = LogFactory.getLog(ReduceSideJoin_ReducerStage1.class);
 
 	    @Override
 	    protected void setup(Context context) throws IOException, InterruptedException {
@@ -201,33 +203,26 @@ public class ReduceSideJoinBSBMQ10 {
 			
 			// Find the keys for the vendor/publisher
 			KeyValue kv_vendorURI = null;
-			KeyValue kv_validTo = null;
 			for (KeyValueArrayWritable array : values) {
 				for (KeyValue kv : (KeyValue[]) array.toArray()) {
 					if (Arrays.equals(kv.getValue(),"dc_publisher".getBytes())) {
 						kv_vendorURI = kv;
 						finalKeyValues.add(kv);
 					} else if (Arrays.equals(kv.getQualifier(),"bsbm-voc_validTo".getBytes())) {
-						kv_validTo = kv;
+						// TP-09
+						System.out.println(ByteBuffer.wrap(kv.getValue()).getLong() + " " + currentDate);
+						LOG.info(ByteBuffer.wrap(kv.getValue()).getLong() + " " + currentDate);
+						if (ByteBuffer.wrap(kv.getValue()).getLong() < currentDate) {
+							return;
+						}
 						finalKeyValues.add(kv);
 					} else {
 						finalKeyValues.add(kv);
 					}
 				}
 			}
-			
-			// TP-09
-			long validTo = 1L;
-			try{
-				validTo = SharedServices.dateTimeStringToLong(new String(kv_validTo.getValue()));
-			} catch (IndexOutOfBoundsException e) { }
-			// TP-09
-			if (validTo <= currentDate) {
-				return;
-			}
-			
-			Result vendorResult = table.get(new Get(kv_vendorURI.getQualifier()));
 			// TP-04
+			Result vendorResult = table.get(new Get(kv_vendorURI.getQualifier()));
 			byte[] vendorCountry = vendorResult.getValue(SharedServices.CF_AS_BYTES, "<http://downlode.org/rdf/iso-3166/countries#US>".getBytes());
 			if (!Arrays.equals(vendorCountry,"bsbm-voc_country".getBytes())) {
 				return;
