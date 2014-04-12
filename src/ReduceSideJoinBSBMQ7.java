@@ -275,10 +275,9 @@ public class ReduceSideJoinBSBMQ7 {
 					if (Arrays.equals(kv.getQualifier(), "rdfs_label".getBytes())) {
 						finalKeyValues.add(kv);
 					} else if (Arrays.equals(kv.getValue(), "bsbm-voc_country".getBytes())) {
-//						if (!Arrays.equals(kv.getQualifier(), "<http://downlode.org/rdf/iso-3166/countries#DE>".getBytes())) {
-//							return;
-//						}
-						finalKeyValues.add(kv);
+						if (!Arrays.equals(kv.getQualifier(), "<http://downlode.org/rdf/iso-3166/countries#DE>".getBytes())) {
+							return;
+						}
 					}
 				}
 			}
