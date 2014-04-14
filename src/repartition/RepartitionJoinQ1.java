@@ -1,3 +1,5 @@
+package repartition;
+
 /**
  * Repartition Join BSBM Q1
  * @date April 2013
@@ -18,16 +20,11 @@ import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.mapreduce.TableMapReduceUtil;
 import org.apache.hadoop.hbase.mapreduce.TableMapper;
 import org.apache.hadoop.hbase.util.Bytes;
-import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
-import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 
-import repartition.CompositeGroupingComparator;
-import repartition.CompositeKeyWritable;
-import repartition.CompositePartitioner;
-import repartition.CompositeSortComparator;
-
+import sortmerge.SharedServices;
+import sortmerge.KeyValueArrayWritable;
 
 public class RepartitionJoinQ1 {
 	

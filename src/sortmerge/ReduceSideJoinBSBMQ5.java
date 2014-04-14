@@ -1,3 +1,5 @@
+package sortmerge;
+
 /**
  * Reduce Side Join BSBM Q5
  * @date April 2013
@@ -26,9 +28,7 @@ import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 
-import repartition.CompositeKeyWritable;
-
-public class RepartitionJoinQ5 {
+public class ReduceSideJoinBSBMQ5 {
 	
 	// Begin Query Information
 	private static String ProductXYZ = "bsbm-inst_dataFromProducer105/Product4956";
@@ -65,8 +65,8 @@ public class RepartitionJoinQ5 {
 		 */
 	    Scan scan1 = new Scan();		
 		Job job1 = new Job(hConf);
-		job1.setJobName("BSBM-Q5-RepartitionJoin");
-		job1.setJarByClass(RepartitionJoinQ5.class);
+		job1.setJobName("BSBM-Q5-ReduceSideJoin");
+		job1.setJarByClass(ReduceSideJoinBSBMQ5.class);
 		// Change caching and number of time stamps to speed up the scan
 		scan1.setCaching(500);        
 		scan1.setMaxVersions(200);
@@ -76,13 +76,13 @@ public class RepartitionJoinQ5 {
 		TableMapReduceUtil.initTableMapperJob(
 				args[0],		// input HBase table name
 				scan1,			// Scan instance to control CF and attribute selection
-				RepartitionMapper.class,	// mapper class
-				CompositeKeyWritable.class,		// mapper output key
+				ReduceSideJoin_MapperStage1.class,	// mapper class
+				Text.class,		// mapper output key
 				KeyValueArrayWritable.class,  		// mapper output value
 				job1);
 
 		// Reducer settings
-		job1.setReducerClass(RepartitionReducer.class);   
+		job1.setReducerClass(ReduceSideJoin_ReducerStage1.class);   
 		job1.setOutputFormatClass(TextOutputFormat.class);
 		//job1.setNumReduceTasks(1);  // Uncomment this if running into problems on 2+ node cluster
 		FileOutputFormat.setOutputPath(job1, new Path("output/BSBMQ5"));
@@ -96,8 +96,10 @@ public class RepartitionJoinQ5 {
 	}
 
 	
-	public static class RepartitionMapper extends TableMapper<CompositeKeyWritable, KeyValueArrayWritable> {
+	public static class ReduceSideJoin_MapperStage1 extends TableMapper<Text, KeyValueArrayWritable> {
 		
+		private Text text = new Text();
+
 		public void map(ImmutableBytesWritable row, Result value, Context context) throws InterruptedException, IOException {
 		/* BERLIN SPARQL BENHCMARK QUERY 5
 		   ----------------------------------------
@@ -118,7 +120,9 @@ public class RepartitionJoinQ5 {
 		LIMIT 5
 		   ---------------------------------------
 		 */
-			String rowKey = new String(value.getRow());			
+			String rowKey = new String(value.getRow());
+			text.set(rowKey);
+			
 			// TP-09
 			if (rowKey.equals(ProductXYZ)) {
 				return;
@@ -149,8 +153,7 @@ public class RepartitionJoinQ5 {
 			}
 			if (foundNumeric1 && foundNumeric2) {
 				// Write the output product key-value
-				context.write(new CompositeKeyWritable(rowKey,1),
-						new KeyValueArrayWritable(SharedServices.listToArray(keyValuesToTransmit)));
+				context.write(text, new KeyValueArrayWritable(SharedServices.listToArray(keyValuesToTransmit)));
 			}
 		}
 	}
@@ -158,7 +161,7 @@ public class RepartitionJoinQ5 {
 	// Output format:
 	// Key: HBase Row Key (subject)
 	// Value: All projected attributes for the row key (subject)
-	public static class RepartitionReducer extends Reducer<CompositeKeyWritable, KeyValueArrayWritable, Text, Text>  {
+	public static class ReduceSideJoin_ReducerStage1 extends Reducer<Text, KeyValueArrayWritable, Text, Text>  {
 		
 	    HTable table;
 
@@ -168,7 +171,7 @@ public class RepartitionJoinQ5 {
 	      table = new HTable(conf, conf.get("scan.table"));
 	    }
 
-		public void reduce(CompositeKeyWritable key, Iterable<KeyValueArrayWritable> values, Context context) throws IOException, InterruptedException {
+		public void reduce(Text key, Iterable<KeyValueArrayWritable> values, Context context) throws IOException, InterruptedException {
 			/* BERLIN SPARQL BENHCMARK QUERY 5
 			   ----------------------------------------
 			SELECT DISTINCT ?product ?productLabel
@@ -286,7 +289,7 @@ public class RepartitionJoinQ5 {
 			}
 			// If the code has made it to this point, then we can output the data
 			// Which is only the product (row key) and it's label (added to StringBuilder above)
-			context.write(new Text(key.getValue()), new Text(builder.toString()));
+			context.write(key, new Text(builder.toString()));
 		}
 	}	    
 }

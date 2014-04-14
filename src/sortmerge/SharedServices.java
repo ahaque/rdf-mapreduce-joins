@@ -1,3 +1,5 @@
+package sortmerge;
+
 
 /**
  * Shared functions and variables for the Reduce Side Join for BSBM

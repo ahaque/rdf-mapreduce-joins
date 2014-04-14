@@ -1,3 +1,5 @@
+package sortmerge;
+
 import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.io.ArrayWritable;
 

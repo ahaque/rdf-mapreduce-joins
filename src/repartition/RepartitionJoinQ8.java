@@ -1,3 +1,5 @@
+package repartition;
+
 /**
  * Reduce Side Join BSBM Q8
  * @date April 2013
@@ -26,7 +28,10 @@ import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 
-public class ReduceSideJoinBSBMQ8 {
+import sortmerge.KeyValueArrayWritable;
+import sortmerge.SharedServices;
+
+public class RepartitionJoinQ8 {
 	
 	// Begin Query Information
 	private static String ProductXYZ = "bsbm-inst_dataFromProducer284/Product13895";
@@ -63,7 +68,7 @@ public class ReduceSideJoinBSBMQ8 {
 	    Scan scan1 = new Scan();		
 		Job job1 = new Job(hConf);
 		job1.setJobName("BSBM-Q8-ReduceSideJoin");
-		job1.setJarByClass(ReduceSideJoinBSBMQ8.class);
+		job1.setJarByClass(RepartitionJoinQ8.class);
 		// Change caching and number of time stamps to speed up the scan
 		scan1.setCaching(500);        
 		scan1.setMaxVersions(200);
@@ -73,14 +78,13 @@ public class ReduceSideJoinBSBMQ8 {
 		TableMapReduceUtil.initTableMapperJob(
 				args[0],		// input HBase table name
 				scan1,			// Scan instance to control CF and attribute selection
-				ReduceSideJoin_MapperStage1.class,	// mapper class
-				Text.class,		// mapper output key
+				RepartitionMapper.class,	// mapper class
+				CompositeKeyWritable.class,		// mapper output key
 				KeyValueArrayWritable.class,  		// mapper output value
 				job1);
 
 		// Reducer settings
-		job1.setReducerClass(ReduceSideJoin_ReducerStage1.class);   
-		//job1.setReducerClass(SharedServices.ReduceSideJoin_Reducer.class);   
+		job1.setReducerClass(RepartitionReducer.class);   
 		
 		job1.setOutputFormatClass(TextOutputFormat.class);
 		//job1.setNumReduceTasks(1);  // Uncomment this if running into problems on 2+ node cluster
@@ -95,10 +99,8 @@ public class ReduceSideJoinBSBMQ8 {
 	}
 
 	
-	public static class ReduceSideJoin_MapperStage1 extends TableMapper<Text, KeyValueArrayWritable> {
-		
-		private Text text = new Text();
-		
+	public static class RepartitionMapper extends TableMapper<CompositeKeyWritable, KeyValueArrayWritable> {
+				
 		public void map(ImmutableBytesWritable row, Result value, Context context) throws InterruptedException, IOException {
 		/* BERLIN SPARQL BENHCMARK QUERY 8
 		   ----------------------------------------
@@ -120,7 +122,6 @@ public class ReduceSideJoinBSBMQ8 {
 			LIMIT 20
 		   ---------------------------------------*/
 			String rowKey = new String(value.getRow());
-			text.set(rowKey);
 			
 			ArrayList<KeyValue> keyValuesToTransmit = new ArrayList<KeyValue>();
 			List<KeyValue> reviewRow = value.list();
@@ -181,14 +182,14 @@ public class ReduceSideJoinBSBMQ8 {
 			if (requiredColumns < 6) {
 				return;
 			}
-			context.write(text, new KeyValueArrayWritable(SharedServices.listToArray(keyValuesToTransmit)));
+			context.write(new CompositeKeyWritable(rowKey, 1), new KeyValueArrayWritable(SharedServices.listToArray(keyValuesToTransmit)));
 		}
 	}
 	
 	// Output format:
 	// Key: HBase Row Key (subject)
 	// Value: All projected attributes for the row key (subject)
-	public static class ReduceSideJoin_ReducerStage1 extends Reducer<Text, KeyValueArrayWritable, Text, Text>  {
+	public static class RepartitionReducer extends Reducer<CompositeKeyWritable, KeyValueArrayWritable, Text, Text>  {
 		
 	    HTable table;
 
@@ -198,7 +199,7 @@ public class ReduceSideJoinBSBMQ8 {
 	      table = new HTable(conf, conf.get("scan.table"));
 	    }
 
-		public void reduce(Text key, Iterable<KeyValueArrayWritable> values, Context context) throws IOException, InterruptedException {
+		public void reduce(CompositeKeyWritable key, Iterable<KeyValueArrayWritable> values, Context context) throws IOException, InterruptedException {
 			/* BERLIN SPARQL BENHCMARK QUERY 8
 			   ----------------------------------------
 			SELECT ?title ?text ?reviewDate ?reviewer ?reviewerName ?rating1 ?rating2 ?rating3 ?rating4 
@@ -260,7 +261,7 @@ public class ReduceSideJoinBSBMQ8 {
 	        	builder.append(triple[0] + "\t" + triple[1] + "\t" + triple[2] +"\n");
 	        }
 
-			context.write(key, new Text(builder.toString()));
+			context.write(new Text(key.getValue()), new Text(builder.toString()));
 		}
 	}	    
 }

@@ -1,3 +1,5 @@
+package repartition;
+
 /**
  * Reduce Side Join BSBM Q3
  * @date March 2013
@@ -22,8 +24,11 @@ import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 
+import sortmerge.KeyValueArrayWritable;
+import sortmerge.SharedServices;
 
-public class ReduceSideJoinBSBMQ3 {
+
+public class RepartitionJoinQ3 {
 	
 	// Begin Query Information
 	private static String ProductType = "bsbm-inst_ProductType230";
@@ -63,8 +68,8 @@ public class ReduceSideJoinBSBMQ3 {
 	    //scan.setFilter(rowColBloomFilter());
 		
 		Job job = new Job(hConf);
-		job.setJobName("BSBM-Q3-ReduceSideJoin");
-		job.setJarByClass(ReduceSideJoinBSBMQ3.class);
+		job.setJobName("BSBM-Q3-RepartitionJoin");
+		job.setJarByClass(RepartitionJoinQ3.class);
 		// Change caching to speed up the scan
 		scan.setCaching(500);        
 		scan.setMaxVersions(200);
@@ -74,13 +79,18 @@ public class ReduceSideJoinBSBMQ3 {
 		TableMapReduceUtil.initTableMapperJob(
 				args[0],        // input HBase table name
 				scan,             // Scan instance to control CF and attribute selection
-				ReduceSideJoin_Mapper.class,   // mapper
-				Text.class,         // mapper output key
+				RepartitionMapper.class,   // mapper
+				CompositeKeyWritable.class,         // mapper output key
 				KeyValueArrayWritable.class,  // mapper output value
 				job);
 
+		// Repartition settings
+		job.setPartitionerClass(CompositePartitioner.class);
+		job.setSortComparatorClass(CompositeSortComparator.class);
+		job.setGroupingComparatorClass(CompositeGroupingComparator.class);
+		
 		// Reducer settings
-		job.setReducerClass(SharedServices.ReduceSideJoin_Reducer.class);    // reducer class
+		job.setReducerClass(SharedServices.RepartitionJoin_Reducer.class);    // reducer class
 		job.setNumReduceTasks(1);    // at least one, adjust as required
 	
 		FileOutputFormat.setOutputPath(job, new Path("output/BSBMQ3"));
@@ -94,7 +104,7 @@ public class ReduceSideJoinBSBMQ3 {
 	}
 	
 	
-	public static class ReduceSideJoin_Mapper extends TableMapper<Text, KeyValueArrayWritable> {
+	public static class RepartitionMapper extends TableMapper<CompositeKeyWritable, KeyValueArrayWritable> {
 		
 		private Text text = new Text();
 
@@ -170,7 +180,7 @@ LIMIT 10
 					}
 				}
 			}
-	    	context.write(text, new KeyValueArrayWritable(entireRow));
+	    	context.write(new CompositeKeyWritable(text.toString(),1), new KeyValueArrayWritable(entireRow));
 		}
 	}
 		    

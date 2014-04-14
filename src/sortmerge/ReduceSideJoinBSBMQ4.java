@@ -1,5 +1,7 @@
+package sortmerge;
+
 /**
- * Reduce Side Join BSBM Q3
+ * Reduce Side Join BSBM Q4
  * @date March 2013
  * @author Albert Haque
  */
@@ -22,18 +24,17 @@ import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 
-import repartition.*;
 
-
-public class RepartitionJoinQ3 {
+public class ReduceSideJoinBSBMQ4 {
 	
 	// Begin Query Information
 	private static String ProductType = "bsbm-inst_ProductType230";
 	private static String ProductFeature1 = "bsbm-inst_ProductFeature39";
 	private static String ProductFeature2 = "bsbm-inst_ProductFeature41";
+	private static String ProductFeature3 = "bsbm-inst_ProductFeature41";
 	private static int x = 0;
 	private static int y = 5000;
-	private static String[] ProjectedVariables = {"rdfs_label"};
+	private static String[] ProjectedVariables = {"rdfs_label", "bsbm-voc_productPropertyTextual1"};
 	// End Query Information
 	
 	private static byte[] CF_AS_BYTES = "o".getBytes();
@@ -65,8 +66,8 @@ public class RepartitionJoinQ3 {
 	    //scan.setFilter(rowColBloomFilter());
 		
 		Job job = new Job(hConf);
-		job.setJobName("BSBM-Q3-RepartitionJoin");
-		job.setJarByClass(RepartitionJoinQ3.class);
+		job.setJobName("BSBM-Q4-ReduceSideJoin");
+		job.setJarByClass(ReduceSideJoinBSBMQ4.class);
 		// Change caching to speed up the scan
 		scan.setCaching(500);        
 		scan.setMaxVersions(200);
@@ -76,21 +77,16 @@ public class RepartitionJoinQ3 {
 		TableMapReduceUtil.initTableMapperJob(
 				args[0],        // input HBase table name
 				scan,             // Scan instance to control CF and attribute selection
-				RepartitionMapper.class,   // mapper
-				CompositeKeyWritable.class,         // mapper output key
+				ReduceSideJoin_Mapper.class,   // mapper
+				Text.class,         // mapper output key
 				KeyValueArrayWritable.class,  // mapper output value
 				job);
 
-		// Repartition settings
-		job.setPartitionerClass(CompositePartitioner.class);
-		job.setSortComparatorClass(CompositeSortComparator.class);
-		job.setGroupingComparatorClass(CompositeGroupingComparator.class);
-		
 		// Reducer settings
-		job.setReducerClass(SharedServices.RepartitionJoin_Reducer.class);    // reducer class
+		job.setReducerClass(SharedServices.ReduceSideJoin_Reducer.class);    // reducer class
 		job.setNumReduceTasks(1);    // at least one, adjust as required
 	
-		FileOutputFormat.setOutputPath(job, new Path("output/BSBMQ3"));
+		FileOutputFormat.setOutputPath(job, new Path("output/BSBMQ4"));
 
 		try {
 			System.exit(job.waitForCompletion(true) ? 0 : 1);
@@ -101,41 +97,39 @@ public class RepartitionJoinQ3 {
 	}
 	
 	
-	public static class RepartitionMapper extends TableMapper<CompositeKeyWritable, KeyValueArrayWritable> {
+	public static class ReduceSideJoin_Mapper extends TableMapper<Text, KeyValueArrayWritable> {
 		
 		private Text text = new Text();
 
 		public void map(ImmutableBytesWritable row, Result value, Context context) throws InterruptedException, IOException {
 		/* BERLIN SPARQL BENHCMARK QUERY 3
 		   ----------------------------------------
-SELECT ?product ?label
-WHERE {
-	[TP-01] ?product rdfs:label ?label .
-	[TP-02] ?product a %ProductType% .
-	[TP-03] ?product bsbm:productFeature %ProductFeature1% .
-	[TP-04] ?product bsbm:productPropertyNumeric1 ?p1 .
-	[TP-05] FILTER ( ?p1 > %x% ) 
-	[TP-06] ?product bsbm:productPropertyNumeric3 ?p3 .
-	[TP-07] FILTER (?p3 < %y% )
-	[TP-08] OPTIONAL { 
-	[TP-09] 	?product bsbm:productFeature %ProductFeature2% .
-	[TP-10] 	?product rdfs:label ?testVar
-	[TP-11] }
-	[TP-12] FILTER (!bound(?testVar)) 
-}
-ORDER BY ?label
-LIMIT 10
+		SELECT DISTINCT ?product ?label ?propertyTextual
+		WHERE {
+			{ 
+			[TP-01]	?product rdfs:label ?label .
+			[TP-02]	?product rdf:type %ProductType% .
+			[TP-03]	?product bsbm:productFeature %ProductFeature1% .
+			[TP-04]	?product bsbm:productFeature %ProductFeature2% .
+			[TP-05]	?product bsbm:productPropertyTextual1 ?propertyTextual .
+			[TP-06]	?product bsbm:productPropertyNumeric1 ?p1 .
+			[TP-07]	FILTER ( ?p1 > %x% )
+			} UNION {
+			[TP-08]	?product rdfs:label ?label .
+			[TP-09]	?product rdf:type %ProductType% .
+			[TP-10]	?product bsbm:productFeature %ProductFeature1% .
+			[TP-11]	?product bsbm:productFeature %ProductFeature3% .
+			[TP-12]	?product bsbm:productPropertyTextual1 ?propertyTextual .
+			[TP-13]	?product bsbm:productPropertyNumeric2 ?p2 .
+			[TP-14]	FILTER ( ?p2> %y% ) 
+			} 
+		}
+		ORDER BY ?label
+		OFFSET 5
+		LIMIT 10
 		   ---------------------------------------
 		 */
-			// TP-09
-			byte[] item9 = value.getValue(CF_AS_BYTES, Bytes.toBytes(ProductFeature2));
-			if (item9 == null) {
-				// If this subject doesn't have this value, don't penalize it since it's OPTIONAL
-			} else {
-				String item9_str = new String(item9);
-				if (!item9_str.equals("bsbm-voc_productFeature")) { return; }
-			}
-			
+			// Triple patterns within both sides of union
 			// TP-02
 			byte[] item2 = value.getValue(CF_AS_BYTES, Bytes.toBytes(ProductType));
 			if (item2 == null) { return; }
@@ -147,18 +141,10 @@ LIMIT 10
 			if (item3 == null) { return; }
 			String item3_str = new String(item3);
 			if (!item3_str.equals("bsbm-voc_productFeature")) { return; }
-	
-			// TP-04 Since this is a literal, the predicate is the column name
-			byte[] item4 = value.getValue(CF_AS_BYTES, Bytes.toBytes("bsbm-voc_productPropertyNumeric1"));
-			if (item4 == null) { return; }
-			int number4 = ByteBuffer.wrap(item4).getInt();
-			if (number4 <= x) { return; }
-			
-			// TP-07
-			byte[] item7 = value.getValue(CF_AS_BYTES, Bytes.toBytes("bsbm-voc_productPropertyNumeric3"));
-			if (item7 == null) { return; }
-			int number7 = ByteBuffer.wrap(item7).getInt();
-			if (number7 >= y) { return; }
+
+			if (!isPartOfFirstUnion(value) && !isPartOfSecondUnion(value)) {
+				return;
+			}
 			
 			// Subject (Mapper Output: Key)
 			text.set(new String(value.getRow()));
@@ -177,8 +163,51 @@ LIMIT 10
 					}
 				}
 			}
-	    	context.write(new CompositeKeyWritable(text.toString(),1), new KeyValueArrayWritable(entireRow));
+	    	context.write(text, new KeyValueArrayWritable(entireRow));
 		}
+		
+		public boolean isPartOfFirstUnion(Result value) {
+			/* FIRST UNION
+			[TP-04]	?product bsbm:productFeature %ProductFeature2% .
+			[TP-06]	?product bsbm:productPropertyNumeric1 ?p1 .
+			[TP-07]	FILTER ( ?p1 > %x% )
+			 */
+			// TP-04
+			byte[] item4 = value.getValue(CF_AS_BYTES, Bytes.toBytes(ProductFeature2));
+			if (item4 == null) { return false; }
+			String item4_str = new String(item4);
+			if (!item4_str.equals("bsbm-voc_productFeature")) { return false; }
+			
+			// TP-06-07
+			byte[] item6 = value.getValue(CF_AS_BYTES, Bytes.toBytes("bsbm-voc_productPropertyNumeric1"));
+			if (item6 == null) { return false; }
+			int number6 = ByteBuffer.wrap(item6).getInt();
+			if (number6 <= x) { return false; }
+			
+			return true;
+		}
+		
+		public boolean isPartOfSecondUnion(Result value) {
+			/* FIRST UNION
+			[TP-11]	?product bsbm:productFeature %ProductFeature3% .
+			[TP-13]	?product bsbm:productPropertyNumeric2 ?p2 .
+			[TP-14]	FILTER ( ?p2> %y% ) 
+			 */
+			// TP-11
+			byte[] item4 = value.getValue(CF_AS_BYTES, Bytes.toBytes(ProductFeature3));
+			if (item4 == null) { return false; }
+			String item4_str = new String(item4);
+			if (!item4_str.equals("bsbm-voc_productFeature")) { return false; }
+			
+			// TP-13-14
+			byte[] item6 = value.getValue(CF_AS_BYTES, Bytes.toBytes("bsbm-voc_productPropertyNumeric2"));
+			if (item6 == null) { return false; }
+			int number6 = ByteBuffer.wrap(item6).getInt();
+			if (number6 <= y) { return false; }
+			
+			return true;
+		}
+		
 	}
 		    
 }

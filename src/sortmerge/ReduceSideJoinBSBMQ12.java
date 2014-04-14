@@ -1,3 +1,5 @@
+package sortmerge;
+
 /**
  * Reduce Side Join BSBM Q12
  * @date April 2013

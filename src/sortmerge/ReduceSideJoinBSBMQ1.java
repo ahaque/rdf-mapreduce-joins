@@ -1,11 +1,13 @@
+package sortmerge;
+
 /**
- * Reduce Side Join BSBM Q11
+ * Reduce Side Join BSBM Q1
  * @date March 2013
  * @author Albert Haque
  */
 
 import java.io.IOException;
-import java.util.LinkedList;
+import java.nio.ByteBuffer;
 import java.util.List;
 
 import org.apache.hadoop.conf.Configuration;
@@ -17,15 +19,20 @@ import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.mapreduce.TableMapReduceUtil;
 import org.apache.hadoop.hbase.mapreduce.TableMapper;
+import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 
 
-public class ReduceSideJoinBSBMQ11 {
+public class ReduceSideJoinBSBMQ1 {
 	
 	// Begin Query Information
-	private static String OfferXYZ = "bsbm-inst_dataFromVendor46/Offer95918";
+	private static String ProductFeature1 = "bsbm-inst_ProductFeature35";
+	private static String ProductFeature2 = "bsbm-inst_ProductFeature31";
+	private static String ProductType = "bsbm-inst_ProductType183";
+	private static int x = 0;
+	private static String[] ProjectedVariables = {"rdfs_label"};
 	// End Query Information
 		
 	public static void main(String[] args) throws ClassNotFoundException, IOException, InterruptedException {
@@ -55,11 +62,10 @@ public class ReduceSideJoinBSBMQ11 {
 	    //scan.setFilter(rowColBloomFilter());
 		
 		Job job = new Job(hConf);
-		job.setJobName("BSBM-Q11-ReduceSideJoin");
-		job.setJarByClass(ReduceSideJoinBSBMQ11.class);
+		job.setJobName("BSBM-Q1-ReduceSideJoin");
+		job.setJarByClass(ReduceSideJoinBSBMQ1.class);
 		// Change caching to speed up the scan
 		scan.setCaching(500);        
-		scan.setMaxVersions(200);
 		scan.setCacheBlocks(false);
 		
 		// Mapper settings
@@ -75,7 +81,7 @@ public class ReduceSideJoinBSBMQ11 {
 		job.setReducerClass(SharedServices.ReduceSideJoin_Reducer.class);    // reducer class
 		job.setNumReduceTasks(1);    // at least one, adjust as required
 	
-		FileOutputFormat.setOutputPath(job, new Path("output/BSBMQ11"));
+		FileOutputFormat.setOutputPath(job, new Path("output/BSBMQ1"));
 
 		try {
 			System.exit(job.waitForCompletion(true) ? 0 : 1);
@@ -89,56 +95,65 @@ public class ReduceSideJoinBSBMQ11 {
 	public static class ReduceSideJoin_Mapper extends TableMapper<Text, KeyValueArrayWritable> {
 		
 		private Text text = new Text();
-		
-		private boolean isPartOfFirstUnion(Result value) {
-			if (new String(value.getRow()).equals(OfferXYZ)) {
-				return true;
-			}
-			return false;
-		}
 
 		public void map(ImmutableBytesWritable row, Result value, Context context) throws InterruptedException, IOException {
-			text.set(new String(value.getRow()));
-		/* BERLIN SPARQL BENHCMARK QUERY 11
+		/* BERLIN SPARQL BENHCMARK QUERY 1
 		   ----------------------------------------
-			SELECT ?property ?hasValue ?isValueOf
-			WHERE {
-			[TP-01]	{ %OfferXYZ% ?property ?hasValue }
-					UNION
-			[TP-02]	{ ?isValueOf ?property %OfferXYZ% }
-			}
+		   SELECT DISTINCT ?product ?label
+			WHERE { 
+ [TriplePattern-1] ?product rdfs:label ?label .  
+ [TriplePattern-2] ?product a %ProductType% .
+ [TriplePattern-3] ?product bsbm:productFeature %ProductFeature1% . 
+ [TriplePattern-4] ?product bsbm:productFeature %ProductFeature2% . 
+ [TriplePattern-5] ?product bsbm:productPropertyNumeric1 ?value1 . 
+ [TriplePattern-6] FILTER (?value1 > %x%) 
+				}
+			ORDER BY ?label
+			LIMIT 10
 		   ---------------------------------------
 		 */
-			// TP-01
-			if (isPartOfFirstUnion(value)) {
-				List<KeyValue> entireRowAsList = value.list();
-				KeyValue[] kvsAsArray = new KeyValue[entireRowAsList.size()];
-				for (int i = 0; i < entireRowAsList.size(); i++) {
-					kvsAsArray[i] = entireRowAsList.get(i);
-				}
-		    	context.write(text, new KeyValueArrayWritable(kvsAsArray));
-		    	return;
-			}
-			// TP-02
-			else {
-				List<KeyValue> entireRowAsList = value.list();
-				List<KeyValue> kvsToTransmit = new LinkedList<KeyValue>();
-				// Check all cells and see if the OFFER is part of the value
-				for (KeyValue kv : entireRowAsList) {
-					if (new String(kv.getValue()).equals(OfferXYZ)) {
-						kvsToTransmit.add(kv);
+			// TriplePattern-2
+			byte[] item2 = value.getValue(SharedServices.CF_AS_BYTES, Bytes.toBytes(ProductType));
+			if (item2 == null) { return; }
+			String item2_str = new String(item2);
+			if (!item2_str.equals("rdf_type")) { return; }
+			
+			// TriplePattern-3
+			byte[] item3 = value.getValue(SharedServices.CF_AS_BYTES, Bytes.toBytes(ProductFeature1));
+			if (item3 == null) { return; }
+			String item3_str = new String(item3);
+			if (!item3_str.equals("bsbm-voc_productFeature")) { return; }
+	
+			// TriplePattern-4
+			byte[] item4 = value.getValue(SharedServices.CF_AS_BYTES, Bytes.toBytes(ProductFeature2));
+			if (item4 == null) { return; }
+			String item4_str = new String(item4);
+		    if (!item4_str.equals("bsbm-voc_productFeature")) { return; }
+
+			// TriplePattern-6 - Since this is a literal, the predicate is the column name
+			byte[] item6 = value.getValue(SharedServices.CF_AS_BYTES, Bytes.toBytes("bsbm-voc_productPropertyNumeric1"));
+			if (item6 == null) { return; }
+			int number6 = ByteBuffer.wrap(item6).getInt();
+			if (number6 <= x) { return; }
+			
+			// Subject (Mapper Output: Key)
+			text.set(new String(value.getRow()));
+			
+			// HBase row for that subject (Mapper Output: Value)
+			List<KeyValue> entireRowAsList = value.list();
+			KeyValue[] entireRow = new KeyValue[ProjectedVariables.length];
+			
+			int index = 0;
+			for (int i = 0; i < entireRowAsList.size(); i++) {
+				// Reduce data sent across network by writing only columns that we know will be used
+				for (String project : ProjectedVariables) {
+					if (new String(entireRowAsList.get(i).getQualifier()).equals(project)) {
+						entireRow[index] = entireRowAsList.get(i);
+						index++;
 					}
 				}
-				KeyValue[] kvsAsArray = new KeyValue[kvsToTransmit.size()];
-				for (int i = 0; i < kvsToTransmit.size(); i++) {
-					kvsAsArray[i] = kvsToTransmit.get(i);
-				}
-				if (kvsAsArray.length > 0) {
-			    	context.write(text, new KeyValueArrayWritable(kvsAsArray));
-				} else {
-					return;
-				}
 			}
+	    	context.write(text, new KeyValueArrayWritable(entireRow));
 		}
-	}	    
+	}		    
 }
