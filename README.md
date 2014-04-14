@@ -10,7 +10,11 @@ These records are then sent to the appropriate reducer and the actual comparison
 
 Repartition Join
 ---------
-The repartition join uses a compound key to identify which relation the row originates from. It uses a custom Hadoop Partitioner, Sort, and Grouping function.
+The repartition join uses a compound key to identify which relation the row originates from.
+It uses a custom Hadoop Partitioner, Sort, and Grouping function. You can read a paper detailing this implementation here:
+
+Blanas, Spyros, et al. "A comparison of join algorithms for log processing in mapreduce."
+Proceedings of the 2010 ACM SIGMOD International Conference on Management of data. ACM, 2010.
 
 Software
 ---------
