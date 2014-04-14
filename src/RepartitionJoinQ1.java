@@ -6,15 +6,12 @@
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hbase.HBaseConfiguration;
 import org.apache.hadoop.hbase.KeyValue;
-import org.apache.hadoop.hbase.client.Get;
-import org.apache.hadoop.hbase.client.HTable;
 import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
@@ -24,13 +21,15 @@ import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Reducer;
-import org.apache.hadoop.mapreduce.Reducer.Context;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 
-import repartition.*;
+import repartition.CompositeGroupingComparator;
+import repartition.CompositeKeyWritable;
+import repartition.CompositePartitioner;
+import repartition.CompositeSortComparator;
 
 
-public class RepartitionJoinBSBMQ1 {
+public class RepartitionJoinQ1 {
 	
 	// Begin Query Information
 	private static String ProductFeature1 = "bsbm-inst_ProductFeature35";
@@ -66,7 +65,7 @@ public class RepartitionJoinBSBMQ1 {
 	    Scan scan = new Scan();		
 		Job job = new Job(hConf);
 		job.setJobName("BSBM-Q1-RepartitionJoin");
-		job.setJarByClass(RepartitionJoinBSBMQ1.class);
+		job.setJarByClass(RepartitionJoinQ1.class);
 		// Change caching to speed up the scan
 		scan.setCaching(500);        
 		scan.setCacheBlocks(false);
@@ -86,8 +85,8 @@ public class RepartitionJoinBSBMQ1 {
 		job.setGroupingComparatorClass(CompositeGroupingComparator.class);
 		
 		// Reducer settings
-		job.setReducerClass(RepartitionReducer.class);    // reducer class
-		job.setNumReduceTasks(1);    // at least one, adjust as required
+		job.setReducerClass(RepartitionReducer.class);
+		job.setNumReduceTasks(1);
 	
 		FileOutputFormat.setOutputPath(job, new Path("output/BSBMQ1"));
 
@@ -107,12 +106,12 @@ public class RepartitionJoinBSBMQ1 {
 		   ----------------------------------------
 		   SELECT DISTINCT ?product ?label
 			WHERE { 
- [TriplePattern-1] ?product rdfs:label ?label .  
- [TriplePattern-2] ?product a %ProductType% .
- [TriplePattern-3] ?product bsbm:productFeature %ProductFeature1% . 
- [TriplePattern-4] ?product bsbm:productFeature %ProductFeature2% . 
- [TriplePattern-5] ?product bsbm:productPropertyNumeric1 ?value1 . 
- [TriplePattern-6] FILTER (?value1 > %x%) 
+	 [TriplePattern-1] ?product rdfs:label ?label .  
+	 [TriplePattern-2] ?product a %ProductType% .
+	 [TriplePattern-3] ?product bsbm:productFeature %ProductFeature1% . 
+	 [TriplePattern-4] ?product bsbm:productFeature %ProductFeature2% . 
+	 [TriplePattern-5] ?product bsbm:productPropertyNumeric1 ?value1 . 
+	 [TriplePattern-6] FILTER (?value1 > %x%) 
 				}
 			ORDER BY ?label
 			LIMIT 10
