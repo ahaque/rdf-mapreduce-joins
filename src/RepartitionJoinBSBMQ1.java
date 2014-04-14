@@ -1,17 +1,20 @@
 /**
- * Reduce Side Join BSBM Q1
- * @date March 2013
+ * Repartition Join BSBM Q1
+ * @date April 2013
  * @author Albert Haque
  */
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hbase.HBaseConfiguration;
 import org.apache.hadoop.hbase.KeyValue;
+import org.apache.hadoop.hbase.client.Get;
+import org.apache.hadoop.hbase.client.HTable;
 import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
@@ -20,7 +23,11 @@ import org.apache.hadoop.hbase.mapreduce.TableMapper;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
+import org.apache.hadoop.mapreduce.Reducer;
+import org.apache.hadoop.mapreduce.Reducer.Context;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
+
+import repartition.*;
 
 
 public class RepartitionJoinBSBMQ1 {
@@ -56,9 +63,7 @@ public class RepartitionJoinBSBMQ1 {
 	    hConf.set("scan.table", args[0]);
 	    hConf.set("hbase.zookeeper.property.clientPort", "2181");
 
-	    Scan scan = new Scan();
-	    //scan.setFilter(rowColBloomFilter());
-		
+	    Scan scan = new Scan();		
 		Job job = new Job(hConf);
 		job.setJobName("BSBM-Q1-RepartitionJoin");
 		job.setJarByClass(RepartitionJoinBSBMQ1.class);
@@ -69,14 +74,19 @@ public class RepartitionJoinBSBMQ1 {
 		// Mapper settings
 		TableMapReduceUtil.initTableMapperJob(
 				args[0],        // input HBase table name
-				scan,             // Scan instance to control CF and attribute selection
-				ReduceSideJoin_Mapper.class,   // mapper
-				Text.class,         // mapper output key
+				scan,           // Scan instance to control CF and attribute selection
+				RepartitionMapper.class,     // mapper
+				CompositeKeyWritable.class,   // mapper output key
 				KeyValueArrayWritable.class,  // mapper output value
 				job);
-
+		
+		// Repartition settings
+		job.setPartitionerClass(CompositePartitioner.class);
+		job.setSortComparatorClass(CompositeSortComparator.class);
+		job.setGroupingComparatorClass(CompositeGroupingComparator.class);
+		
 		// Reducer settings
-		job.setReducerClass(SharedServices.ReduceSideJoin_Reducer.class);    // reducer class
+		job.setReducerClass(RepartitionReducer.class);    // reducer class
 		job.setNumReduceTasks(1);    // at least one, adjust as required
 	
 		FileOutputFormat.setOutputPath(job, new Path("output/BSBMQ1"));
@@ -90,10 +100,8 @@ public class RepartitionJoinBSBMQ1 {
 	}
 	
 	
-	public static class ReduceSideJoin_Mapper extends TableMapper<Text, KeyValueArrayWritable> {
+	public static class RepartitionMapper extends TableMapper<CompositeKeyWritable, KeyValueArrayWritable> {
 		
-		private Text text = new Text();
-
 		public void map(ImmutableBytesWritable row, Result value, Context context) throws InterruptedException, IOException {
 		/* BERLIN SPARQL BENHCMARK QUERY 1
 		   ----------------------------------------
@@ -134,9 +142,6 @@ public class RepartitionJoinBSBMQ1 {
 			int number6 = ByteBuffer.wrap(item6).getInt();
 			if (number6 <= x) { return; }
 			
-			// Subject (Mapper Output: Key)
-			text.set(new String(value.getRow()));
-			
 			// HBase row for that subject (Mapper Output: Value)
 			List<KeyValue> entireRowAsList = value.list();
 			KeyValue[] entireRow = new KeyValue[ProjectedVariables.length];
@@ -151,7 +156,27 @@ public class RepartitionJoinBSBMQ1 {
 					}
 				}
 			}
-	    	context.write(text, new KeyValueArrayWritable(entireRow));
+	    	context.write(new CompositeKeyWritable(new String(value.getRow()),1), new KeyValueArrayWritable(entireRow));
 		}
-	}		    
+	}
+	
+	public static class RepartitionReducer extends Reducer<CompositeKeyWritable, KeyValueArrayWritable, Text, Text> {
+
+		public void reduce(CompositeKeyWritable key, Iterable<KeyValueArrayWritable> values, Context context) throws IOException, InterruptedException {
+			StringBuilder builder = new StringBuilder();
+			for (KeyValueArrayWritable array : values) {
+				builder.append("\n");
+				for (KeyValue kv : (KeyValue[]) array.toArray()) {
+					String[] triple = null;
+					try {
+						triple = SharedServices.keyValueToTripleString(kv);
+					} catch (ClassNotFoundException e) {
+						e.printStackTrace();
+					}
+					builder.append("\t" + triple[1] + "\t" + triple[2] + "\n");
+				}
+			}
+			context.write(new Text(key.getValue()), new Text(builder.toString()));
+		}
+	}
 }
