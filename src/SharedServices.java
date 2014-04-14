@@ -24,6 +24,8 @@ import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
 import org.mortbay.log.Log;
 
+import repartition.CompositeKeyWritable;
+
 public class SharedServices {
 	
 	// Literal DATE and DATETIME formats
@@ -100,6 +102,29 @@ public class SharedServices {
 		        }
 		      }
 			context.write(key, new Text(builder.toString()));
+		}
+	}
+	
+	/*
+	 * Generic Repartition Reducer class that simply outputs the key-values in a human-readable format
+	 */
+	public static class RepartitionJoin_Reducer extends Reducer<CompositeKeyWritable, KeyValueArrayWritable, Text, Text>  {
+		
+		public void reduce(CompositeKeyWritable key, Iterable<KeyValueArrayWritable> values, Context context) throws IOException, InterruptedException {
+		      StringBuilder builder = new StringBuilder();
+		      for (KeyValueArrayWritable array : values) {
+		    	builder.append("\n");
+		        for (KeyValue kv : (KeyValue[]) array.toArray()) {
+		        	String[] triple = null;
+		        	try {
+						triple = SharedServices.keyValueToTripleString(kv);
+					} catch (ClassNotFoundException e) {
+						e.printStackTrace();
+					}
+		        	builder.append("\t" + triple[1] + "\t" + triple[2] +"\n");
+		        }
+		      }
+			context.write(new Text(key.getValue()), new Text(builder.toString()));
 		}
 	}
 	
