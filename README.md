@@ -1,12 +1,12 @@
 MapReduce Join Algorithms for RDF
 =========
-I implemented two join algorithms: the reduce side join and the improved repartition join. I am in the process of evaluating the
+I implemented two join algorithms: the sort-merge join and the improved repartition join. I am in the process of evaluating the
 algorithms on Amazon EC2 and Elastic MapReduce. A lot of work is required to generate, store, and transfer the terabyte size
 files on Amazon S3 - all while trying to keep costs low.
 
-Reduce Side Join
+Sort-Merge Join
 ---------
-The reduce side join is a join algorithm for use in MapReduce environments (e.g. Hadoop).
+The sort-merge (reduce side) join is a join algorithm for use in MapReduce environments (e.g. Hadoop).
 Each mapper node reads its local data blocks and extracts the join attribute for that record.
 These records are then sent to the appropriate reducer and the actual comparison is done at the reducer nodes.
 
