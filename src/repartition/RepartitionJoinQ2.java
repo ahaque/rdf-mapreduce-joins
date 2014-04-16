@@ -1,3 +1,5 @@
+package repartition;
+
 /**
  * Reduce Side Join BSBM Q2
  * @date March 2013
@@ -24,10 +26,8 @@ import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 
-import repartition.CompositeGroupingComparator;
-import repartition.CompositeKeyWritable;
-import repartition.CompositePartitioner;
-import repartition.CompositeSortComparator;
+import sortmerge.SharedServices;
+import sortmerge.KeyValueArrayWritable;
 
 public class RepartitionJoinQ2 {
 	
