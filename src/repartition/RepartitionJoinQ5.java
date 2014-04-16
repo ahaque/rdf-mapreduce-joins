@@ -1,7 +1,7 @@
 package repartition;
 
 /**
- * Reduce Side Join BSBM Q5
+ * Repartition Join BSBM Q5
  * @date April 2013
  * @author Albert Haque
  */

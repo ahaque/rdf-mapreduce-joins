@@ -1,12 +1,13 @@
 package repartition;
 
 /**
- * Repartition Join BSBM Q8
+ * Repartition BSBM Q10
  * @date April 2013
  * @author Albert Haque
  */
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -31,10 +32,11 @@ import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 import sortmerge.KeyValueArrayWritable;
 import sortmerge.SharedServices;
 
-public class RepartitionJoinQ8 {
+public class RepartitionJoinQ10 {
 	
 	// Begin Query Information
 	private static String ProductXYZ = "bsbm-inst_dataFromProducer284/Product13895";
+	private static String CurrentDateString = "2008-06-01T00-00-00";
 	// End Query Information
 			
 	public static void main(String[] args) throws ClassNotFoundException, IOException, InterruptedException {
@@ -67,8 +69,8 @@ public class RepartitionJoinQ8 {
 		 */
 	    Scan scan1 = new Scan();		
 		Job job1 = new Job(hConf);
-		job1.setJobName("BSBM-Q8-RepartitionJoin");
-		job1.setJarByClass(RepartitionJoinQ8.class);
+		job1.setJobName("BSBM-Q10-RepartitionJoin");
+		job1.setJarByClass(RepartitionJoinQ10.class);
 		// Change caching and number of time stamps to speed up the scan
 		scan1.setCaching(500);        
 		scan1.setMaxVersions(200);
@@ -84,11 +86,17 @@ public class RepartitionJoinQ8 {
 				job1);
 
 		// Reducer settings
+		//job1.setReducerClass(ReduceSideJoin_ReducerStage1.class);   
 		job1.setReducerClass(RepartitionReducer.class);   
+		
+		// Repartition settings
+		job1.setPartitionerClass(CompositePartitioner.class);
+		job1.setSortComparatorClass(CompositeSortComparator.class);
+		job1.setGroupingComparatorClass(CompositeGroupingComparator.class);
 		
 		job1.setOutputFormatClass(TextOutputFormat.class);
 		//job1.setNumReduceTasks(1);  // Uncomment this if running into problems on 2+ node cluster
-		FileOutputFormat.setOutputPath(job1, new Path("output/BSBMQ8"));
+		FileOutputFormat.setOutputPath(job1, new Path("output/BSBMQ10"));
 
 		try {
 			job1.waitForCompletion(true);
@@ -102,149 +110,122 @@ public class RepartitionJoinQ8 {
 	public static class RepartitionMapper extends TableMapper<CompositeKeyWritable, KeyValueArrayWritable> {
 				
 		public void map(ImmutableBytesWritable row, Result value, Context context) throws InterruptedException, IOException {
-		/* BERLIN SPARQL BENHCMARK QUERY 8
+		/* BERLIN SPARQL BENHCMARK QUERY 10
 		   ----------------------------------------
-			SELECT ?title ?text ?reviewDate ?reviewer ?reviewerName ?rating1 ?rating2 ?rating3 ?rating4 
-			WHERE { 
-				[TriplePattern-01] ?review bsbm:reviewFor %ProductXYZ% .
-				[TP-02] ?review dc:title ?title .
-				[TP-03] ?review rev:text ?text .
-				[TP-04] FILTER langMatches( lang(?text), "EN" ) 
-				[TP-05] ?review bsbm:reviewDate ?reviewDate .
-				[TP-06] ?review rev:reviewer ?reviewer .
-				[TP-07] ?reviewer foaf:name ?reviewerName .
-				[TP-08] OPTIONAL { ?review bsbm:rating1 ?rating1 . }
-				[TP-09] OPTIONAL { ?review bsbm:rating2 ?rating2 . }
-				[TP-10] OPTIONAL { ?review bsbm:rating3 ?rating3 . }
-				[TP-11] OPTIONAL { ?review bsbm:rating4 ?rating4 . }
-			}
-			ORDER BY DESC(?reviewDate)
-			LIMIT 20
+		SELECT DISTINCT ?offer ?price
+		WHERE {
+			[TP-01] ?offer bsbm:product %ProductXYZ% .
+			[TP-02] ?offer bsbm:vendor ?vendor .
+			[TP-03] ?offer dc:publisher ?vendor .
+			[TP-04] ?vendor bsbm:country <http://downlode.org/rdf/iso-3166/countries#US> .
+			[TP-05] ?offer bsbm:deliveryDays ?deliveryDays .
+			[TP-06] FILTER (?deliveryDays <= 3)
+			[TP-07] ?offer bsbm:price ?price .
+			[TP-08] ?offer bsbm:validTo ?date .
+			[TP-09] FILTER (?date > %currentDate% )
+		}
+		ORDER BY xsd:double(str(?price))
+		LIMIT 10
 		   ---------------------------------------*/
 			String rowKey = new String(value.getRow());
 			
 			ArrayList<KeyValue> keyValuesToTransmit = new ArrayList<KeyValue>();
-			List<KeyValue> reviewRow = value.list();
-			byte[] predicate = value.getValue(SharedServices.CF_AS_BYTES, ProductXYZ.getBytes());
-			if (!Arrays.equals(predicate, "bsbm-voc_reviewFor".getBytes())) {
-				return;
-			}
+			List<KeyValue> offerRow = value.list();
 			
-			int requiredColumns = 0;
-			for (KeyValue kv : reviewRow) {
+			boolean offerForProductXYZ = false;
+			for (KeyValue kv : offerRow) {
 				// TP-01
-				if (Arrays.equals(kv.getValue(), "bsbm-voc_reviewFor".getBytes())) {
-					keyValuesToTransmit.add(kv);
-					requiredColumns++;
+				if (Arrays.equals(kv.getValue(), "bsbm-voc_product".getBytes())) {
+					if (!Arrays.equals(kv.getQualifier(), ProductXYZ.getBytes())) {
+						return;
+					}
+					offerForProductXYZ = true;
 				}
-				// TP-02
-				else if (Arrays.equals(kv.getQualifier(), "dc_title".getBytes())) {
-					keyValuesToTransmit.add(kv);
-					requiredColumns++;
-				}
-				// TP-03
-				else if (Arrays.equals(kv.getQualifier(), "rev_text".getBytes())) {
-					keyValuesToTransmit.add(kv);
-					requiredColumns++;
-				}
-				// TP-04
-				else if (Arrays.equals(kv.getValue(), "rdfs_lang".getBytes())) {
-					if (!Arrays.equals(kv.getQualifier(), "@en".getBytes())) {
+				// TP-05 and TP-06
+				if (Arrays.equals(kv.getQualifier(), "bsbm-voc_deliveryDays".getBytes())) {
+					int number = ByteBuffer.wrap(kv.getValue()).getInt();
+					if (number > 3) {
 						return;
 					}
 					keyValuesToTransmit.add(kv);
-					requiredColumns++;
 				}
-				// TP-05
-				else if (Arrays.equals(kv.getQualifier(), "bsbm-voc_reviewDate".getBytes())) {
-					keyValuesToTransmit.add(kv);
-					requiredColumns++;
-				}
-				// TP-06
-				else if (Arrays.equals(kv.getValue(), "rev_reviewer".getBytes())) {
-					keyValuesToTransmit.add(kv);
-					requiredColumns++;
-				}
-				// OPTIONAL TP-08, TP-09, TP-10, TP-11
-				else if (Arrays.equals(kv.getQualifier(), "bsbm-voc_rating1".getBytes())) {
+				// TP-02 and TP-03
+				if (Arrays.equals(kv.getValue(), "dc_publisher".getBytes())) {
 					keyValuesToTransmit.add(kv);
 				}
-				else if (Arrays.equals(kv.getQualifier(), "bsbm-voc_rating2".getBytes())) {
+				// TP-07
+				if (Arrays.equals(kv.getQualifier(), "bsbm-voc_price".getBytes())) {
 					keyValuesToTransmit.add(kv);
 				}
-				else if (Arrays.equals(kv.getQualifier(), "bsbm-voc_rating3".getBytes())) {
-					keyValuesToTransmit.add(kv);
-				}
-				else if (Arrays.equals(kv.getQualifier(), "bsbm-voc_rating4".getBytes())) {
+				// TP-08
+				if (Arrays.equals(kv.getQualifier(), "bsbm-voc_validTo".getBytes())) {
 					keyValuesToTransmit.add(kv);
 				}
 			}
-			if (requiredColumns < 6) {
+			if (!offerForProductXYZ) {
 				return;
 			}
 			context.write(new CompositeKeyWritable(rowKey, 1), new KeyValueArrayWritable(SharedServices.listToArray(keyValuesToTransmit)));
 		}
 	}
 	
-	// Output format:
-	// Key: HBase Row Key (subject)
-	// Value: All projected attributes for the row key (subject)
+
 	public static class RepartitionReducer extends Reducer<CompositeKeyWritable, KeyValueArrayWritable, Text, Text>  {
 		
 	    HTable table;
+	    long currentDate;
 
 	    @Override
 	    protected void setup(Context context) throws IOException, InterruptedException {
 	      Configuration conf = context.getConfiguration();
 	      table = new HTable(conf, conf.get("scan.table"));
+	      currentDate = SharedServices.dateTimeStringToLong(CurrentDateString);
 	    }
 
 		public void reduce(CompositeKeyWritable key, Iterable<KeyValueArrayWritable> values, Context context) throws IOException, InterruptedException {
-			/* BERLIN SPARQL BENHCMARK QUERY 8
+			/* BERLIN SPARQL BENHCMARK QUERY 10
 			   ----------------------------------------
-			SELECT ?title ?text ?reviewDate ?reviewer ?reviewerName ?rating1 ?rating2 ?rating3 ?rating4 
-			WHERE { 
-				[TP-01] ?review bsbm:reviewFor %ProductXYZ% .
-				[TP-02] ?review dc:title ?title .
-				[TP-03] ?review rev:text ?text .
-				[TP-04] FILTER langMatches( lang(?text), "EN" ) 
-				[TP-05] ?review bsbm:reviewDate ?reviewDate .
-				[TP-06] ?review rev:reviewer ?reviewer .
-				[TP-07] ?reviewer foaf:name ?reviewerName .
-				[TP-08] OPTIONAL { ?review bsbm:rating1 ?rating1 . }
-				[TP-09] OPTIONAL { ?review bsbm:rating2 ?rating2 . }
-				[TP-10] OPTIONAL { ?review bsbm:rating3 ?rating3 . }
-				[TP-11] OPTIONAL { ?review bsbm:rating4 ?rating4 . }
-			}
-			ORDER BY DESC(?reviewDate)
-			LIMIT 20
+		SELECT DISTINCT ?offer ?price
+		WHERE {
+			[TP-01] ?offer bsbm:product %ProductXYZ% .
+			[TP-02] ?offer bsbm:vendor ?vendor .
+			[TP-03] ?offer dc:publisher ?vendor .
+			[TP-04] ?vendor bsbm:country <http://downlode.org/rdf/iso-3166/countries#US> .
+			[TP-05] ?offer bsbm:deliveryDays ?deliveryDays .
+			[TP-06] FILTER (?deliveryDays <= 3)
+			[TP-07] ?offer bsbm:price ?price .
+			[TP-08] ?offer bsbm:validTo ?date .
+			[TP-09] FILTER (?date > %currentDate% )
+		}
+		ORDER BY xsd:double(str(?price))
+		LIMIT 10
 			   --------------------------------------- */
 			
 			List<KeyValue> finalKeyValues = new ArrayList<KeyValue>();
 			
 			// Find the keys for the vendor/publisher
-			KeyValue kv_reviewer = null;
+			KeyValue kv_vendorURI = null;
 			for (KeyValueArrayWritable array : values) {
 				for (KeyValue kv : (KeyValue[]) array.toArray()) {
-					if (Arrays.equals(kv.getValue(), "rev_reviewer".getBytes())) {
-						kv_reviewer = kv;
+					if (Arrays.equals(kv.getValue(),"dc_publisher".getBytes())) {
+						kv_vendorURI = kv;
+						finalKeyValues.add(kv);
+					} else if (Arrays.equals(kv.getQualifier(),"bsbm-voc_validTo".getBytes())) {
+						// TP-09
+						System.out.println(ByteBuffer.wrap(kv.getValue()).getLong() + " " + currentDate);
+						if (ByteBuffer.wrap(kv.getValue()).getLong() < currentDate) {
+							return;
+						}
 						finalKeyValues.add(kv);
 					} else {
 						finalKeyValues.add(kv);
 					}
 				}
 			}
-			// TP-07
-			Result reviewerResult = table.get(new Get(kv_reviewer.getQualifier()));
-			boolean foundReviewerName = false;
-			for (KeyValue kv : reviewerResult.list()) {
-				if (Arrays.equals(kv.getQualifier(), "foaf_name".getBytes())) {
-					finalKeyValues.add(kv);
-					foundReviewerName = true;
-					break;
-				}
-			}
-			if (foundReviewerName == false) {
+			// TP-04
+			Result vendorResult = table.get(new Get(kv_vendorURI.getQualifier()));
+			byte[] vendorCountry = vendorResult.getValue(SharedServices.CF_AS_BYTES, "<http://downlode.org/rdf/iso-3166/countries#US>".getBytes());
+			if (!Arrays.equals(vendorCountry,"bsbm-voc_country".getBytes())) {
 				return;
 			}
 			

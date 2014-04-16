@@ -1,3 +1,5 @@
+package repartition;
+
 /**
  * Reduce Side Join BSBM Q2
  * @date March 2013
@@ -24,10 +26,8 @@ import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 
-import repartition.CompositeGroupingComparator;
-import repartition.CompositeKeyWritable;
-import repartition.CompositePartitioner;
-import repartition.CompositeSortComparator;
+import sortmerge.KeyValueArrayWritable;
+import sortmerge.SharedServices;
 
 public class RepartitionJoinQ2 {
 	
@@ -203,13 +203,10 @@ WHERE {
 			}
 
 			// Write the output product key-value
-			context.write(new CompositeKeyWritable(text.toString(),1), new KeyValueArrayWritable(SharedServices.listToArray(keyValuesToTransmit)));
+			context.write(new CompositeKeyWritable(rowKey,1), new KeyValueArrayWritable(SharedServices.listToArray(keyValuesToTransmit)));
 		}
 	}
 	
-	// Output format:
-	// Key: HBase Row Key (subject)
-	// Value: All projected attributes for the row key (subject)
 	public static class RepartitionReducer extends Reducer<CompositeKeyWritable, KeyValueArrayWritable, Text, Text>  {
 		
 	    HTable table;
@@ -221,30 +218,7 @@ WHERE {
 	    }
 
 		public void reduce(CompositeKeyWritable key, Iterable<KeyValueArrayWritable> values, Context context) throws IOException, InterruptedException {
-			/* BERLIN SPARQL BENHCMARK QUERY 2
-			   ----------------------------------------
-	SELECT
-		?label ?comment ?producer ?productFeature ?propertyTextual1 ?propertyTextual2 ?propertyTextual3
-	 	?propertyNumeric1 ?propertyNumeric2 ?propertyTextual4 ?propertyTextual5 ?propertyNumeric4 
-	WHERE {
-		[TriplePattern-01]	%ProductXYZ% rdfs:label ?label .
-		[TriplePattern-02]	%ProductXYZ% rdfs:comment ?comment .
-		[TriplePattern-03]	%ProductXYZ% bsbm:productPropertyTextual1 ?propertyTextual1 .
-		[TriplePattern-04]	%ProductXYZ% bsbm:productPropertyTextual2 ?propertyTextual2 .
-		[TriplePattern-05]	%ProductXYZ% bsbm:productPropertyTextual3 ?propertyTextual3 .
-		[TriplePattern-06]	%ProductXYZ% bsbm:productPropertyNumeric1 ?propertyNumeric1 .
-		[TriplePattern-07]	%ProductXYZ% bsbm:productPropertyNumeric2 ?propertyNumeric2 .
-		[TriplePattern-08]	%ProductXYZ% dc:publisher ?p . 
-		[TriplePattern-09]	%ProductXYZ% bsbm:producer ?p .
-		[TriplePattern-10]	?p rdfs:label ?producer .
-		[TriplePattern-11]	%ProductXYZ% bsbm:productFeature ?f .
-		[TriplePattern-12]	?f rdfs:label ?productFeature .
-		[TriplePattern-13]	OPTIONAL { %ProductXYZ% bsbm:productPropertyTextual4 ?propertyTextual4 }
-		[TriplePattern-14]	OPTIONAL { %ProductXYZ% bsbm:productPropertyTextual5 ?propertyTextual5 }
-		[TriplePattern-15]	OPTIONAL { %ProductXYZ% bsbm:productPropertyNumeric4 ?propertyNumeric4 }
-	}
-			   ---------------------------------------
-			 */
+
 			StringBuilder builder = new StringBuilder();
 			byte[] publisherKey = null;
 			builder.append("\n");

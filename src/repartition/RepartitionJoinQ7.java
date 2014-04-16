@@ -228,6 +228,8 @@ public class RepartitionJoinQ7 {
 
 		public void reduce(CompositeKeyWritable key, Iterable<KeyValueArrayWritable> values, Context context) throws IOException, InterruptedException {
 			
+			// TableTag = 1 => Review
+			// TableTag = 2 => Offer
 			List<KeyValue> finalKeyValues = new ArrayList<KeyValue>();
 			// TP-00
 			Result productResult = table.get(new Get(ProductXYZ.getBytes()));
