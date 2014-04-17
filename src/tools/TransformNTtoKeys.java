@@ -28,7 +28,7 @@ public class TransformNTtoKeys extends Configured implements Tool {
 		private final static IntWritable one = new IntWritable(1);
 		@SuppressWarnings({ "unchecked", "rawtypes" })
 		@Override
-		protected void map(LongWritable key, Text value, Mapper.Context context) throws IOException, InterruptedException {
+		protected void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
 			List<Triple> tripleList = BSBMDataSetProcessor.process(value.toString());
 			for (Triple t : tripleList) {
 				context.write(new Text(t.subject), one);
@@ -39,7 +39,7 @@ public class TransformNTtoKeys extends Configured implements Tool {
 	
 	public static class Reduce1 extends Reducer<Text, IntWritable, Text, Text> {
 		@SuppressWarnings({ "unchecked", "rawtypes" })
-		protected void reduce(Text key, Iterable<IntWritable> value, Mapper.Context context) throws IOException, InterruptedException {
+		protected void reduce(Text key, Iterable<IntWritable> value, Context context) throws IOException, InterruptedException {
 			context.write(key, new Text(""));
 		}
 

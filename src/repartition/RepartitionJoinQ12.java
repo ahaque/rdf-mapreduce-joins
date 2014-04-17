@@ -1,4 +1,4 @@
-package sortmerge;
+package repartition;
 
 /**
  * Repartition Join BSBM Q12
@@ -28,10 +28,6 @@ import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 
-import repartition.CompositeGroupingComparator;
-import repartition.CompositeKeyWritable;
-import repartition.CompositePartitioner;
-import repartition.CompositeSortComparator;
 import sortmerge.KeyValueArrayWritable;
 import sortmerge.SharedServices;
 
