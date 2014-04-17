@@ -2,7 +2,7 @@ package sortmerge;
 
 /**
  * Reduce Side Join BSBM Q6
- * @date April 2013
+ * @date April 2014
  * @author Albert Haque
  */
 

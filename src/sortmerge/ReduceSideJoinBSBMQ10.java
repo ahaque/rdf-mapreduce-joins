@@ -2,7 +2,7 @@ package sortmerge;
 
 /**
  * Reduce Side Join BSBM Q10
- * @date April 2013
+ * @date April 2014
  * @author Albert Haque
  */
 
@@ -34,7 +34,7 @@ import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 public class ReduceSideJoinBSBMQ10 {
 	
 	// Begin Query Information
-	private static String ProductXYZ = "bsbm-inst_dataFromProducer284/Product13895";
+	private static String ProductXYZ = "bsbm-inst_dataFromProducer76/Product3607";
 	private static String CurrentDateString = "2008-06-01T00-00-00";
 	// End Query Information
 			

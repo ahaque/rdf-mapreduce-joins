@@ -69,7 +69,7 @@ public class TransformNTtoKeys extends Configured implements Tool {
     job.setOutputKeyClass(Text.class);
     job.setOutputValueClass(Text.class);
     job.setNumReduceTasks(1);
-    job.setOutputFormatClass(TextOutputFormat.class);
+    job.setOutputFormatClass(SequenceFileOutputFormat.class);
     job.setInputFormatClass(TextInputFormat.class);
     return job.waitForCompletion(true) ? 0 : 1;
 

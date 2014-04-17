@@ -1,8 +1,8 @@
 package repartition;
 
 /**
- * Reduce Side Join BSBM Q2
- * @date March 2013
+ * Repartition Join BSBM Q2
+ * @date April 2014
  * @author Albert Haque
  */
 
@@ -32,7 +32,7 @@ import sortmerge.KeyValueArrayWritable;
 public class RepartitionJoinQ2 {
 	
 	// Begin Query Information
-	private static String ProductXYZ = "bsbm-inst_dataFromProducer105/Product4956";
+	private static String ProductXYZ = "bsbm-inst_dataFromProducer284/Product13895";
 	private static String[] ProjectedVariables = {
 		"rdfs_label",
 		"rdfs_comment",

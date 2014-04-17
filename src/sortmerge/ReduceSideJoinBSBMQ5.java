@@ -2,7 +2,7 @@ package sortmerge;
 
 /**
  * Reduce Side Join BSBM Q5
- * @date April 2013
+ * @date April 2014
  * @author Albert Haque
  */
 
@@ -31,7 +31,7 @@ import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 public class ReduceSideJoinBSBMQ5 {
 	
 	// Begin Query Information
-	private static String ProductXYZ = "bsbm-inst_dataFromProducer105/Product4956";
+	private static String ProductXYZ = "bsbm-inst_dataFromProducer140/Product6715";
 	// End Query Information
 			
 	public static void main(String[] args) throws ClassNotFoundException, IOException, InterruptedException {

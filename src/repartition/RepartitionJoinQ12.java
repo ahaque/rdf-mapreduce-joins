@@ -2,7 +2,7 @@ package repartition;
 
 /**
  * Repartition Join BSBM Q12
- * @date April 2013
+ * @date April 2014
  * @author Albert Haque
  */
 
@@ -34,7 +34,7 @@ import sortmerge.SharedServices;
 public class RepartitionJoinQ12 {
 	
 	// Begin Query Information
-	private static String OfferXYZ = "bsbm-inst_dataFromVendor215/Offer421332";
+	private static String OfferXYZ = "bsbm-inst_dataFromVendor63/Offer132327";
 	// End Query Information
 			
 	public static void main(String[] args) throws ClassNotFoundException, IOException, InterruptedException {

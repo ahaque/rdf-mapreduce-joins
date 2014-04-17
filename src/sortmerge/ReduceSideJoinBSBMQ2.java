@@ -2,7 +2,7 @@ package sortmerge;
 
 /**
  * Reduce Side Join BSBM Q2
- * @date March 2013
+ * @date March 2014
  * @author Albert Haque
  */
 
@@ -30,7 +30,7 @@ import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 public class ReduceSideJoinBSBMQ2 {
 	
 	// Begin Query Information
-	private static String ProductXYZ = "bsbm-inst_dataFromProducer105/Product4956";
+	private static String ProductXYZ = "bsbm-inst_dataFromProducer284/Product13895";
 	private static String[] ProjectedVariables = {
 		"rdfs_label",
 		"rdfs_comment",
