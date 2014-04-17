@@ -203,7 +203,8 @@ public class BSBMHBaseLoader extends Mapper<LongWritable, Text, ImmutableBytesWr
     hConf.set("hbase.zookeeper.property.clientPort", "2181");
 
     try {
-      HBaseAdmin admin = new HBaseAdmin(hConf);
+      @SuppressWarnings("resource")
+	HBaseAdmin admin = new HBaseAdmin(hConf);
       if (!admin.tableExists(hbaseTable)) {
         System.out.println("Could not find HBase table " + hbaseTable + ", creating now");
         HTableDescriptor desc = new HTableDescriptor();

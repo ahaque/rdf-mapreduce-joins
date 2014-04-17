@@ -8,6 +8,7 @@ public class CompositeGroupingComparator extends WritableComparator {
 		super(CompositeKeyWritable.class, true);
 	}
  
+	@SuppressWarnings("rawtypes")
 	@Override
 	public int compare(WritableComparable w1, WritableComparable w2) {
 		CompositeKeyWritable key1 = (CompositeKeyWritable) w1;

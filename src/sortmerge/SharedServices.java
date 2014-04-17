@@ -2,7 +2,7 @@ package sortmerge;
 
 
 /**
- * Shared functions and variables for the Reduce Side Join for BSBM
+ * Shared functions and variables for the SortMerge and repartition join
  * @author Albert Haque
  * @date Apriil 2014
  */
@@ -24,7 +24,6 @@ import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Reducer;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
-import org.mortbay.log.Log;
 
 import repartition.CompositeKeyWritable;
 

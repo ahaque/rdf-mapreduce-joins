@@ -3,9 +3,11 @@ package tools;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+
 import org.apache.hadoop.hbase.util.Bytes;
 
 import javax.xml.bind.DatatypeConverter;
+
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
@@ -161,35 +163,40 @@ public class BSBMDataSetProcessor {
     }
   }
 
-  private static class ShortParser implements TypeParser {
+  @SuppressWarnings("unused")
+private static class ShortParser implements TypeParser {
     @Override
     public byte[] parse(String input) {
       return toBytes(Short.parseShort(input));
     }
   }
 
-  private static class FloatParser implements TypeParser {
+  @SuppressWarnings("unused")
+private static class FloatParser implements TypeParser {
     @Override
     public byte[] parse(String input) {
       return toBytes(Float.parseFloat(input));
     }
   }
 
-  private static class LongParser implements TypeParser {
+  @SuppressWarnings("unused")
+private static class LongParser implements TypeParser {
     @Override
     public byte[] parse(String input) {
       return toBytes(Long.parseLong(input));
     }
   }
 
-  private static class ByteParser implements TypeParser {
+  @SuppressWarnings("unused")
+private static class ByteParser implements TypeParser {
     @Override
     public byte[] parse(String input) {
       return toBytes(Byte.parseByte(input));
     }
   }
 
-  private static class BooleanParser implements TypeParser {
+  @SuppressWarnings("unused")
+private static class BooleanParser implements TypeParser {
     @Override
     public byte[] parse(String input) {
       return toBytes(Boolean.parseBoolean(input));
@@ -219,11 +226,13 @@ public class BSBMDataSetProcessor {
 
   public static void main(String[] args) throws IOException {
     BSBMDataSetProcessor mapper = new BSBMDataSetProcessor();
-    BufferedReader reader = new BufferedReader(new FileReader(args[0]));
+    @SuppressWarnings("resource")
+	BufferedReader reader = new BufferedReader(new FileReader(args[0]));
     String line;
     while ((line = reader.readLine()) != null) {
 
-      List<Triple> triples = mapper.process(line);
+      @SuppressWarnings("static-access")
+	List<Triple> triples = mapper.process(line);
       for (Triple triple : triples) {
         System.out.println(triple);
       }
