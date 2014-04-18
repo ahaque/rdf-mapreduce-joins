@@ -165,7 +165,8 @@ public class BSBMHBaseLoader extends Mapper<LongWritable, Text, ImmutableBytesWr
     }
 
 
-    Job job = new Job(conf);
+    @SuppressWarnings("deprecation")
+	Job job = new Job(conf);
     job.setJobName("BSBMToHBaseLoader");
     job.setJarByClass(BSBMHBaseLoader.class);
     job.setMapperClass(BSBMHBaseLoader.class);

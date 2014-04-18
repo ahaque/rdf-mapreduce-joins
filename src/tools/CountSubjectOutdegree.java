@@ -45,7 +45,8 @@ public class CountSubjectOutdegree {
 	 public static void main(String[] args) throws Exception {
 		    Configuration conf = new Configuration();
 		        
-		    Job job = new Job(conf, "CountSubjectOutdegree");
+		    @SuppressWarnings("deprecation")
+			Job job = new Job(conf, "CountSubjectOutdegree");
 		    job.setJarByClass(CountSubjectOutdegree.class);
 		    
 		    job.setOutputKeyClass(Text.class);

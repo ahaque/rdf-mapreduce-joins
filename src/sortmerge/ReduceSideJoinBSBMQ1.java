@@ -2,7 +2,7 @@ package sortmerge;
 
 /**
  * Reduce Side Join BSBM Q1
- * @date March 2013
+ * @date April 2014
  * @author Albert Haque
  */
 
@@ -61,6 +61,7 @@ public class ReduceSideJoinBSBMQ1 {
 	    Scan scan = new Scan();
 	    //scan.setFilter(rowColBloomFilter());
 		
+		@SuppressWarnings("deprecation")
 		Job job = new Job(hConf);
 		job.setJobName("BSBM-Q1-ReduceSideJoin");
 		job.setJarByClass(ReduceSideJoinBSBMQ1.class);

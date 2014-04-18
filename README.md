@@ -20,4 +20,4 @@ Proceedings of the 2010 ACM SIGMOD International Conference on Management of dat
 
 Software
 ---------
-This join is implemented using Hadoop 1.2.1 and HBase 0.94.17.
+This join is implemented using Hadoop 2.2.0 and HBase 0.94.7.

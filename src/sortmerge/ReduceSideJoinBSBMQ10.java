@@ -67,6 +67,7 @@ public class ReduceSideJoinBSBMQ10 {
 		 * Retrieve a list of subjects and their attributes
 		 */
 	    Scan scan1 = new Scan();		
+		@SuppressWarnings("deprecation")
 		Job job1 = new Job(hConf);
 		job1.setJobName("BSBM-Q10-ReduceSideJoin");
 		job1.setJarByClass(ReduceSideJoinBSBMQ10.class);

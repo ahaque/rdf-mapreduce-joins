@@ -26,7 +26,6 @@ public class TransformNTtoKeys extends Configured implements Tool {
 
 	public static class Map extends Mapper<LongWritable, Text, Text, IntWritable> {
 		private final static IntWritable one = new IntWritable(1);
-		@SuppressWarnings({ "unchecked", "rawtypes" })
 		@Override
 		protected void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
 			List<Triple> tripleList = BSBMDataSetProcessor.process(value.toString());
@@ -38,7 +37,6 @@ public class TransformNTtoKeys extends Configured implements Tool {
   }
 	
 	public static class Reduce1 extends Reducer<Text, IntWritable, Text, Text> {
-		@SuppressWarnings({ "unchecked", "rawtypes" })
 		protected void reduce(Text key, Iterable<IntWritable> value, Context context) throws IOException, InterruptedException {
 			context.write(key, new Text(""));
 		}
@@ -55,7 +53,8 @@ public class TransformNTtoKeys extends Configured implements Tool {
 
     // Arguments: <input path> <output path>
 
-    Job job = new Job(getConf());
+    @SuppressWarnings("deprecation")
+	Job job = new Job(getConf());
 
     FileInputFormat.setInputPaths(job, new Path(args[0]));
     FileOutputFormat.setOutputPath(job, new Path(args[1]));
