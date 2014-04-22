@@ -13,11 +13,8 @@ import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
 import org.apache.hadoop.mapreduce.lib.input.TextInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.mapreduce.lib.output.SequenceFileOutputFormat;
-import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 import org.apache.hadoop.util.Tool;
 import org.apache.hadoop.util.ToolRunner;
-
-import tools.BSBMDataSetProcessor.Triple;
 
 import java.io.IOException;
 import java.util.List;
@@ -28,15 +25,21 @@ public class TransformNTtoKeys extends Configured implements Tool {
 		private final static IntWritable one = new IntWritable(1);
 		@Override
 		protected void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
-			List<Triple> tripleList = BSBMDataSetProcessor.process(value.toString());
-			for (Triple t : tripleList) {
+			/* Uncomment if using BSBM dataset
+			 * 
+			List<tools.BSBMDataSetProcessor.TripleTriple> tripleList = BSBMDataSetProcessor.process(value.toString());
+			for (tools.BSBMDataSetProcessor.TripleTriple t : tripleList) {
+				context.write(new Text(t.subject), one);
+			}
+			*/
+			List<tools.LUBMDataSetProcessor.Triple> tripleList = LUBMDataSetProcessor.process(value.toString());
+			for (tools.LUBMDataSetProcessor.Triple t : tripleList) {
 				context.write(new Text(t.subject), one);
 			}
 		}
-
   }
 	
-	public static class Reduce1 extends Reducer<Text, IntWritable, Text, Text> {
+	public static class Reduce extends Reducer<Text, IntWritable, Text, Text> {
 		protected void reduce(Text key, Iterable<IntWritable> value, Context context) throws IOException, InterruptedException {
 			context.write(key, new Text(""));
 		}
@@ -62,7 +65,7 @@ public class TransformNTtoKeys extends Configured implements Tool {
     job.setJobName("TransformNTtoKeys");
     job.setJarByClass(TransformNTtoKeys.class);
     job.setMapperClass(Map.class);
-    job.setReducerClass(Reduce1.class);
+    job.setReducerClass(Reduce.class);
     job.setMapOutputKeyClass(Text.class);
     job.setMapOutputValueClass(IntWritable.class);
     job.setOutputKeyClass(Text.class);

@@ -20,22 +20,19 @@ import static org.apache.hadoop.hbase.util.Bytes.toBytes;
 /**
  * @author David Alves
  */
-public class BSBMDataSetProcessor {
+public class LUBMDataSetProcessor {
 
   public static String COLUMN_FAMILY = "o";
   public static byte[] COLUMN_FAMILY_AS_BYTES = Bytes.toBytes(COLUMN_FAMILY);
 
-  public static final String[] URL_PREFIXES = {"" + "<http://www.w3.org/1999/02/22-rdf-syntax-ns#",
-    "<http://www.w3.org/2000/01/rdf-schema#",
-    "<http://xmlns.com/foaf/0.1/",
-    "<http://purl.org/dc/elements/1.1/",
-    "<http://www.w3.org/2001/XMLSchema#",
-    "<http://purl.org/stuff/rev#",
-    "<http://www4.wiwiss.fu-berlin.de/bizer/bsbm/v01/vocabulary/",
-    "<http://www4.wiwiss.fu-berlin.de/bizer/bsbm/v01/instances/"};
 
-  public static final String[] URL_ABBREVIATIONS = {"rdf_", "rdfs_", "foaf_", "dc_", "xsd_", "rev_",
-    "bsbm-voc_", "bsbm-inst_"};
+  public static final String[] URL_PREFIXES = {
+	"<http://www.w3.org/1999/02/22-rdf-syntax-ns#",
+    "<http://www.lehigh.edu/~zhp2/2004/0401/univ-bench.owl#",
+    "<http://www."
+    };
+
+  public static final String[] URL_ABBREVIATIONS = {"rdf_", "lubm_", ""};
 
   public static final Pattern pattern = Pattern.compile("([^\"]\\S*|\".+?\")\\s*");
   public static final Pattern valuePattern = Pattern.compile("^^", Pattern.LITERAL);
@@ -49,7 +46,7 @@ public class BSBMDataSetProcessor {
     typesToParsersBuilder.put("<http://www.w3.org/2001/XMLSchema#dateTime>", new DateTimeParser());
     typesToParsersBuilder.put("<http://www.w3.org/2001/XMLSchema#string>", new StringParser());
     typesToParsersBuilder.put("<http://www.w3.org/2001/XMLSchema#integer>", new IntParser());
-    typesToParsersBuilder.put("<http://www4.wiwiss.fu-berlin.de/bizer/bsbm/v01/vocabulary/USD>", new DoubleParser());
+    typesToParsersBuilder.put("<http://www4.wiwiss.fu-berlin.de/bizer/LUBM/v01/vocabulary/USD>", new DoubleParser());
     typesToParsers = typesToParsersBuilder.build();
   }
 
@@ -225,7 +222,7 @@ private static class BooleanParser implements TypeParser {
   }
 
   public static void main(String[] args) throws IOException {
-    BSBMDataSetProcessor mapper = new BSBMDataSetProcessor();
+    LUBMDataSetProcessor mapper = new LUBMDataSetProcessor();
     @SuppressWarnings("resource")
 	BufferedReader reader = new BufferedReader(new FileReader(args[0]));
     String line;
