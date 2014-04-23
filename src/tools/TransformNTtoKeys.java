@@ -25,17 +25,16 @@ public class TransformNTtoKeys extends Configured implements Tool {
 		private final static IntWritable one = new IntWritable(1);
 		@Override
 		protected void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
-			/* Uncomment if using BSBM dataset
-			 * 
-			List<tools.BSBMDataSetProcessor.TripleTriple> tripleList = BSBMDataSetProcessor.process(value.toString());
-			for (tools.BSBMDataSetProcessor.TripleTriple t : tripleList) {
+			  
+			List<tools.BSBMDataSetProcessor.Triple> tripleList = BSBMDataSetProcessor.process(value.toString());
+			for (tools.BSBMDataSetProcessor.Triple t : tripleList) {
 				context.write(new Text(t.subject), one);
 			}
-			*/
+			/*
 			List<tools.LUBMDataSetProcessor.Triple> tripleList = LUBMDataSetProcessor.process(value.toString());
 			for (tools.LUBMDataSetProcessor.Triple t : tripleList) {
 				context.write(new Text(t.subject), one);
-			}
+			} */
 		}
   }
 	
