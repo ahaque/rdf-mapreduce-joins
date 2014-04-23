@@ -328,7 +328,7 @@ public class LUBMHBaseLoader extends Mapper<LongWritable, Text, ImmutableBytesWr
 
 	public static byte[][] splitKeys1000m = {
 			// 1000M
-
+			// TODO: Will generate once loaded onto the real evaluation cluster due to size and cost
 			};
 
 }
