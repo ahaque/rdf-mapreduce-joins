@@ -31,7 +31,9 @@ import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 public class ReduceSideJoinBSBMQ7 {
 	
 	// Begin Query Information
-	private static String ProductXYZ = "bsbm-inst_dataFromProducer105/Product4956";
+	//private static String ProductXYZ = "bsbm-inst_dataFromProducer105/Product4956"; // BSBM 10M
+	private static String ProductXYZ = "bsbm-inst_dataFromProducer5145/Product260560"; // BSBM 100M
+	
 	// End Query Information
 			
 	public static void main(String[] args) throws ClassNotFoundException, IOException, InterruptedException {
