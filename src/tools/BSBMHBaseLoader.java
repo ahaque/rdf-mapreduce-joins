@@ -153,7 +153,7 @@ public class BSBMHBaseLoader extends Mapper<LongWritable, Text, ImmutableBytesWr
         desc.setName(hbaseTable.getBytes());
         HColumnDescriptor colDesc = new HColumnDescriptor(BSBMDataSetProcessor.COLUMN_FAMILY);
         colDesc.setBloomFilterType(BloomType.ROWCOL);
-        //colDesc.setCacheBloomsOnWrite(true);
+        colDesc.setCacheBloomsOnWrite(true);
         colDesc.setMaxVersions(200);
         desc.addFamily(colDesc);
         admin.createTable(desc, splitKeys);
