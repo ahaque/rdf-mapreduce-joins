@@ -91,8 +91,10 @@ public class BSBMHBaseLoader extends Mapper<LongWritable, Text, ImmutableBytesWr
     	System.out.println("  Number of nodes must be a power of 2");
     	System.exit(0);
     }
+    if (numNodes > 1) {
+    	setSplitKeys(numNodes, datasetSize);
+    }
     
-    setSplitKeys(numNodes, datasetSize);
     Job job = createMRJob(args);
     System.exit(job.waitForCompletion(true) ? 0 : 1);
 
