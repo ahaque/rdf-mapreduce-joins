@@ -25,7 +25,7 @@ import org.apache.hadoop.mapreduce.Reducer;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
 
-import repartition.CompositeKeyWritable;
+import bsbm.repartition.CompositeKeyWritable;
 
 public class SharedServices {
 	
