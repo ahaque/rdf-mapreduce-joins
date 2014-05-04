@@ -1,4 +1,4 @@
-package sortmerge;
+package bsbm.sortmerge;
 
 
 /**

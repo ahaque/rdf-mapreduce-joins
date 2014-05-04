@@ -1,4 +1,4 @@
-package repartition;
+package bsbm.repartition;
 import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;

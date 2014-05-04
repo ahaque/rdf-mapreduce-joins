@@ -1,4 +1,4 @@
-package sortmerge;
+package bsbm.sortmerge;
 
 /**
  * Reduce Side Join BSBM Q10

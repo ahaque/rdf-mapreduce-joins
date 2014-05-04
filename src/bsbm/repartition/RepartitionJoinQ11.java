@@ -1,8 +1,8 @@
-package sortmerge;
+package bsbm.repartition;
 
 /**
- * Reduce Side Join BSBM Q11
- * @date March 2014
+ * Repartition Join BSBM Q11
+ * @date April 2014
  * @author Albert Haque
  */
 
@@ -19,12 +19,13 @@ import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.mapreduce.TableMapReduceUtil;
 import org.apache.hadoop.hbase.mapreduce.TableMapper;
-import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 
+import bsbm.sortmerge.SharedServices;
+import bsbm.sortmerge.KeyValueArrayWritable;
 
-public class ReduceSideJoinBSBMQ11 {
+public class RepartitionJoinQ11 {
 	
 	// Begin Query Information
 	private static String OfferXYZ = "bsbm-inst_dataFromVendor46/Offer95918";
@@ -57,8 +58,8 @@ public class ReduceSideJoinBSBMQ11 {
 	    //scan.setFilter(rowColBloomFilter());
 		
 		Job job = new Job(hConf);
-		job.setJobName("BSBM-Q11-ReduceSideJoin");
-		job.setJarByClass(ReduceSideJoinBSBMQ11.class);
+		job.setJobName("BSBM-Q11-RepartitionJoin");
+		job.setJarByClass(RepartitionJoinQ11.class);
 		// Change caching to speed up the scan
 		scan.setCaching(500);        
 		scan.setMaxVersions(200);
@@ -68,13 +69,18 @@ public class ReduceSideJoinBSBMQ11 {
 		TableMapReduceUtil.initTableMapperJob(
 				args[0],        // input HBase table name
 				scan,             // Scan instance to control CF and attribute selection
-				ReduceSideJoin_Mapper.class,   // mapper
-				Text.class,         // mapper output key
+				RepartitionMapper.class,   // mapper
+				CompositeKeyWritable.class,         // mapper output key
 				KeyValueArrayWritable.class,  // mapper output value
 				job);
 
+		// Repartition settings
+		job.setPartitionerClass(CompositePartitioner.class);
+		job.setSortComparatorClass(CompositeSortComparator.class);
+		job.setGroupingComparatorClass(CompositeGroupingComparator.class);
+		
 		// Reducer settings
-		job.setReducerClass(SharedServices.ReduceSideJoin_Reducer.class);    // reducer class
+		job.setReducerClass(SharedServices.RepartitionJoin_Reducer.class);    // reducer class
 		job.setNumReduceTasks(1);    // at least one, adjust as required
 	
 		FileOutputFormat.setOutputPath(job, new Path("output/BSBMQ11"));
@@ -88,10 +94,8 @@ public class ReduceSideJoinBSBMQ11 {
 	}
 	
 	
-	public static class ReduceSideJoin_Mapper extends TableMapper<Text, KeyValueArrayWritable> {
-		
-		private Text text = new Text();
-		
+	public static class RepartitionMapper extends TableMapper<CompositeKeyWritable, KeyValueArrayWritable> {
+	
 		private boolean isPartOfFirstUnion(Result value) {
 			if (new String(value.getRow()).equals(OfferXYZ)) {
 				return true;
@@ -100,7 +104,6 @@ public class ReduceSideJoinBSBMQ11 {
 		}
 
 		public void map(ImmutableBytesWritable row, Result value, Context context) throws InterruptedException, IOException {
-			text.set(new String(value.getRow()));
 		/* BERLIN SPARQL BENHCMARK QUERY 11
 		   ----------------------------------------
 			SELECT ?property ?hasValue ?isValueOf
@@ -118,7 +121,8 @@ public class ReduceSideJoinBSBMQ11 {
 				for (int i = 0; i < entireRowAsList.size(); i++) {
 					kvsAsArray[i] = entireRowAsList.get(i);
 				}
-		    	context.write(text, new KeyValueArrayWritable(kvsAsArray));
+		    	context.write(new CompositeKeyWritable(new String(value.getRow()), 1),
+		    			new KeyValueArrayWritable(kvsAsArray));
 		    	return;
 			}
 			// TP-02
@@ -136,7 +140,8 @@ public class ReduceSideJoinBSBMQ11 {
 					kvsAsArray[i] = kvsToTransmit.get(i);
 				}
 				if (kvsAsArray.length > 0) {
-			    	context.write(text, new KeyValueArrayWritable(kvsAsArray));
+			    	context.write(new CompositeKeyWritable(new String(value.getRow()), 2),
+			    			new KeyValueArrayWritable(kvsAsArray));
 				} else {
 					return;
 				}

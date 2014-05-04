@@ -1,7 +1,7 @@
-package sortmerge;
+package bsbm.sortmerge;
 
 /**
- * Reduce Side Join BSBM Q12
+ * Reduce Side Join BSBM Q8
  * @date April 2014
  * @author Albert Haque
  */
@@ -28,10 +28,10 @@ import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 
-public class ReduceSideJoinBSBMQ12 {
+public class ReduceSideJoinBSBMQ8 {
 	
 	// Begin Query Information
-	private static String OfferXYZ = "bsbm-inst_dataFromVendor63/Offer132327";
+	private static String ProductXYZ = "bsbm-inst_dataFromProducer93/Product4468";
 	// End Query Information
 			
 	public static void main(String[] args) throws ClassNotFoundException, IOException, InterruptedException {
@@ -64,8 +64,8 @@ public class ReduceSideJoinBSBMQ12 {
 		 */
 	    Scan scan1 = new Scan();		
 		Job job1 = new Job(hConf);
-		job1.setJobName("BSBM-Q12-ReduceSideJoin");
-		job1.setJarByClass(ReduceSideJoinBSBMQ12.class);
+		job1.setJobName("BSBM-Q8-ReduceSideJoin");
+		job1.setJarByClass(ReduceSideJoinBSBMQ8.class);
 		// Change caching and number of time stamps to speed up the scan
 		scan1.setCaching(500);        
 		scan1.setMaxVersions(200);
@@ -82,9 +82,11 @@ public class ReduceSideJoinBSBMQ12 {
 
 		// Reducer settings
 		job1.setReducerClass(ReduceSideJoin_ReducerStage1.class);   
+		//job1.setReducerClass(SharedServices.ReduceSideJoin_Reducer.class);   
+		
 		job1.setOutputFormatClass(TextOutputFormat.class);
 		//job1.setNumReduceTasks(1);  // Uncomment this if running into problems on 2+ node cluster
-		FileOutputFormat.setOutputPath(job1, new Path("output/BSBMQ12"));
+		FileOutputFormat.setOutputPath(job1, new Path("output/BSBMQ8"));
 
 		try {
 			job1.waitForCompletion(true);
@@ -98,78 +100,89 @@ public class ReduceSideJoinBSBMQ12 {
 	public static class ReduceSideJoin_MapperStage1 extends TableMapper<Text, KeyValueArrayWritable> {
 		
 		private Text text = new Text();
-		HTable table;
-
-	    @Override
-	    protected void setup(Context context) throws IOException, InterruptedException {
-	      Configuration conf = context.getConfiguration();
-	      table = new HTable(conf, conf.get("scan.table"));
-	    }
-
+		
 		public void map(ImmutableBytesWritable row, Result value, Context context) throws InterruptedException, IOException {
-		/* BERLIN SPARQL BENHCMARK QUERY 12
+		/* BERLIN SPARQL BENHCMARK QUERY 8
 		   ----------------------------------------
-		CONSTRUCT { %OfferXYZ% bsbm-export:product ?productURI .
-		 %OfferXYZ% bsbm-export:productlabel ?productlabel .
-		 %OfferXYZ% bsbm-export:vendor ?vendorname .
-		 %OfferXYZ% bsbm-export:vendorhomepage ?vendorhomepage . 
-		 %OfferXYZ% bsbm-export:offerURL ?offerURL .
-		 %OfferXYZ% bsbm-export:price ?price .
-		 %OfferXYZ% bsbm-export:deliveryDays ?deliveryDays .
-		 %OfferXYZ% bsbm-export:validuntil ?validTo } 
-		WHERE {
-			[TP-01] %OfferXYZ% bsbm:product ?productURI .
-			[TP-02] ?productURI rdfs:label ?productlabel .
-			[TP-03] %OfferXYZ% bsbm:vendor ?vendorURI .
-			[TP-04] ?vendorURI rdfs:label ?vendorname .
-			[TP-05] ?vendorURI foaf:homepage ?vendorhomepage .
-			[TP-06] %OfferXYZ% bsbm:offerWebpage ?offerURL .
-			[TP-07] %OfferXYZ% bsbm:price ?price .
-			[TP-08] %OfferXYZ% bsbm:deliveryDays ?deliveryDays .
-			[TP-09] %OfferXYZ% bsbm:validTo ?validTo
-		}
+			SELECT ?title ?text ?reviewDate ?reviewer ?reviewerName ?rating1 ?rating2 ?rating3 ?rating4 
+			WHERE { 
+				[TriplePattern-01] ?review bsbm:reviewFor %ProductXYZ% .
+				[TP-02] ?review dc:title ?title .
+				[TP-03] ?review rev:text ?text .
+				[TP-04] FILTER langMatches( lang(?text), "EN" ) 
+				[TP-05] ?review bsbm:reviewDate ?reviewDate .
+				[TP-06] ?review rev:reviewer ?reviewer .
+				[TP-07] ?reviewer foaf:name ?reviewerName .
+				[TP-08] OPTIONAL { ?review bsbm:rating1 ?rating1 . }
+				[TP-09] OPTIONAL { ?review bsbm:rating2 ?rating2 . }
+				[TP-10] OPTIONAL { ?review bsbm:rating3 ?rating3 . }
+				[TP-11] OPTIONAL { ?review bsbm:rating4 ?rating4 . }
+			}
+			ORDER BY DESC(?reviewDate)
+			LIMIT 20
 		   ---------------------------------------*/
 			String rowKey = new String(value.getRow());
 			text.set(rowKey);
 			
-			if (!rowKey.equals(OfferXYZ)) {
-				return;
-			}
 			ArrayList<KeyValue> keyValuesToTransmit = new ArrayList<KeyValue>();
-			List<KeyValue> productRow = value.list();
-			// TP-06, TP-07, TP-08, TP-09
-			boolean found1 = false;
-			boolean found2 = false;
-			boolean found3 = false;
-			boolean found4 = false;
-
-			for (KeyValue kv : productRow) {
-				if (Arrays.equals(kv.getValue(), "bsbm-voc_offerWebpage".getBytes())) {
-					keyValuesToTransmit.add(kv);
-					found1 = true;
-				} else if (Arrays.equals(kv.getValue(), "bsbm-voc_product".getBytes())) {
-					keyValuesToTransmit.add(kv);
-				} else if (Arrays.equals(kv.getValue(), "dc_publisher".getBytes())) {
-					keyValuesToTransmit.add(kv);
-				} else if (Arrays.equals(kv.getQualifier(), "bsbm-voc_price".getBytes())) {
-					keyValuesToTransmit.add(kv);
-					found2 = true;
-				} else if (Arrays.equals(kv.getQualifier(), "bsbm-voc_validTo".getBytes())) {
-					keyValuesToTransmit.add(kv);
-					found3 = true;
-				} else if (Arrays.equals(kv.getQualifier(), "bsbm-voc_deliveryDays".getBytes())) {
-					keyValuesToTransmit.add(kv);
-					found4 = true;
-				}
-			}
-			if (!found1 || !found2 || !found3 || !found4) {
+			List<KeyValue> reviewRow = value.list();
+			byte[] predicate = value.getValue(SharedServices.CF_AS_BYTES, ProductXYZ.getBytes());
+			if (!Arrays.equals(predicate, "bsbm-voc_reviewFor".getBytes())) {
 				return;
 			}
 			
-			/*
-			 * [TP-01] %OfferXYZ% bsbm:product ?productURI .
-			   [TP-02] ?productURI rdfs:label ?productlabel .
-			 */
+			int requiredColumns = 0;
+			for (KeyValue kv : reviewRow) {
+				// TP-01
+				if (Arrays.equals(kv.getValue(), "bsbm-voc_reviewFor".getBytes())) {
+					keyValuesToTransmit.add(kv);
+					requiredColumns++;
+				}
+				// TP-02
+				else if (Arrays.equals(kv.getQualifier(), "dc_title".getBytes())) {
+					keyValuesToTransmit.add(kv);
+					requiredColumns++;
+				}
+				// TP-03
+				else if (Arrays.equals(kv.getQualifier(), "rev_text".getBytes())) {
+					keyValuesToTransmit.add(kv);
+					requiredColumns++;
+				}
+				// TP-04
+				else if (Arrays.equals(kv.getValue(), "rdfs_lang".getBytes())) {
+					if (!Arrays.equals(kv.getQualifier(), "@en".getBytes())) {
+						return;
+					}
+					keyValuesToTransmit.add(kv);
+					requiredColumns++;
+				}
+				// TP-05
+				else if (Arrays.equals(kv.getQualifier(), "bsbm-voc_reviewDate".getBytes())) {
+					keyValuesToTransmit.add(kv);
+					requiredColumns++;
+				}
+				// TP-06
+				else if (Arrays.equals(kv.getValue(), "rev_reviewer".getBytes())) {
+					keyValuesToTransmit.add(kv);
+					requiredColumns++;
+				}
+				// OPTIONAL TP-08, TP-09, TP-10, TP-11
+				else if (Arrays.equals(kv.getQualifier(), "bsbm-voc_rating1".getBytes())) {
+					keyValuesToTransmit.add(kv);
+				}
+				else if (Arrays.equals(kv.getQualifier(), "bsbm-voc_rating2".getBytes())) {
+					keyValuesToTransmit.add(kv);
+				}
+				else if (Arrays.equals(kv.getQualifier(), "bsbm-voc_rating3".getBytes())) {
+					keyValuesToTransmit.add(kv);
+				}
+				else if (Arrays.equals(kv.getQualifier(), "bsbm-voc_rating4".getBytes())) {
+					keyValuesToTransmit.add(kv);
+				}
+			}
+			if (requiredColumns < 6) {
+				return;
+			}
 			context.write(text, new KeyValueArrayWritable(SharedServices.listToArray(keyValuesToTransmit)));
 		}
 	}
@@ -180,7 +193,6 @@ public class ReduceSideJoinBSBMQ12 {
 	public static class ReduceSideJoin_ReducerStage1 extends Reducer<Text, KeyValueArrayWritable, Text, Text>  {
 		
 	    HTable table;
-	    Text productKey = new Text();
 
 	    @Override
 	    protected void setup(Context context) throws IOException, InterruptedException {
@@ -189,76 +201,54 @@ public class ReduceSideJoinBSBMQ12 {
 	    }
 
 		public void reduce(Text key, Iterable<KeyValueArrayWritable> values, Context context) throws IOException, InterruptedException {
-			/* BERLIN SPARQL BENHCMARK QUERY 12
+			/* BERLIN SPARQL BENHCMARK QUERY 8
 			   ----------------------------------------
-		CONSTRUCT { %OfferXYZ% bsbm-export:product ?productURI .
-		 %OfferXYZ% bsbm-export:productlabel ?productlabel .
-		 %OfferXYZ% bsbm-export:vendor ?vendorname .
-		 %OfferXYZ% bsbm-export:vendorhomepage ?vendorhomepage . 
-		 %OfferXYZ% bsbm-export:offerURL ?offerURL .
-		 %OfferXYZ% bsbm-export:price ?price .
-		 %OfferXYZ% bsbm-export:deliveryDays ?deliveryDays .
-		 %OfferXYZ% bsbm-export:validuntil ?validTo } 
-		WHERE {
-			[TP-01] %OfferXYZ% bsbm:product ?productURI .
-			[TP-02] ?productURI rdfs:label ?productlabel .
-			[TP-03] %OfferXYZ% bsbm:vendor ?vendorURI .
-			[TP-04] ?vendorURI rdfs:label ?vendorname .
-			[TP-05] ?vendorURI foaf:homepage ?vendorhomepage .
-			[TP-06] %OfferXYZ% bsbm:offerWebpage ?offerURL .
-			[TP-07] %OfferXYZ% bsbm:price ?price .
-			[TP-08] %OfferXYZ% bsbm:deliveryDays ?deliveryDays .
-			[TP-09] %OfferXYZ% bsbm:validTo ?validTo
-		}
+			SELECT ?title ?text ?reviewDate ?reviewer ?reviewerName ?rating1 ?rating2 ?rating3 ?rating4 
+			WHERE { 
+				[TP-01] ?review bsbm:reviewFor %ProductXYZ% .
+				[TP-02] ?review dc:title ?title .
+				[TP-03] ?review rev:text ?text .
+				[TP-04] FILTER langMatches( lang(?text), "EN" ) 
+				[TP-05] ?review bsbm:reviewDate ?reviewDate .
+				[TP-06] ?review rev:reviewer ?reviewer .
+				[TP-07] ?reviewer foaf:name ?reviewerName .
+				[TP-08] OPTIONAL { ?review bsbm:rating1 ?rating1 . }
+				[TP-09] OPTIONAL { ?review bsbm:rating2 ?rating2 . }
+				[TP-10] OPTIONAL { ?review bsbm:rating3 ?rating3 . }
+				[TP-11] OPTIONAL { ?review bsbm:rating4 ?rating4 . }
+			}
+			ORDER BY DESC(?reviewDate)
+			LIMIT 20
 			   --------------------------------------- */
 			
 			List<KeyValue> finalKeyValues = new ArrayList<KeyValue>();
 			
-			// Find the keys for the product and the publisher/vendor
-			KeyValue kv_vendorURI = null;
-			KeyValue kv_productURI = null;
+			// Find the keys for the vendor/publisher
+			KeyValue kv_reviewer = null;
 			for (KeyValueArrayWritable array : values) {
 				for (KeyValue kv : (KeyValue[]) array.toArray()) {
-					if (Arrays.equals(kv.getValue(),"bsbm-voc_product".getBytes())) {
-						kv_productURI = kv;
-						finalKeyValues.add(kv); // Since productURI is part of construct section of query
-					} else if (Arrays.equals(kv.getValue(),"dc_publisher".getBytes())) {
-						kv_vendorURI = kv;
+					if (Arrays.equals(kv.getValue(), "rev_reviewer".getBytes())) {
+						kv_reviewer = kv;
+						finalKeyValues.add(kv);
 					} else {
 						finalKeyValues.add(kv);
 					}
 				}
 			}
-			
-			/*
-			[TP-03] %OfferXYZ% bsbm:vendor ?vendorURI .
-			[TP-04] ?vendorURI rdfs:label ?vendorname .
-			[TP-05] ?vendorURI foaf:homepage ?vendorhomepage .
-			 */
-			Result vendorResult = table.get(new Get(kv_vendorURI.getQualifier()));
-			for (KeyValue kv : vendorResult.list()) {
-				// TP-04
-				if (Arrays.equals(kv.getQualifier(),"rdfs_label".getBytes())) {
+			// TP-07
+			Result reviewerResult = table.get(new Get(kv_reviewer.getQualifier()));
+			boolean foundReviewerName = false;
+			for (KeyValue kv : reviewerResult.list()) {
+				if (Arrays.equals(kv.getQualifier(), "foaf_name".getBytes())) {
 					finalKeyValues.add(kv);
-				}
-				// TP-05
-				else if (Arrays.equals(kv.getValue(),"foaf_homepage".getBytes())) {
-					finalKeyValues.add(kv);
+					foundReviewerName = true;
+					break;
 				}
 			}
-			
-			/*
-			 [TP-01] %OfferXYZ% bsbm:product ?productURI .
-			[TP-02] ?productURI rdfs:label ?productlabel .
-			 */
-			Result productResult = table.get(new Get(kv_productURI.getQualifier()));
-			
-			for (KeyValue kv : productResult.list()) {
-				// TP-02
-				if (Arrays.equals(kv.getQualifier(),"rdfs_label".getBytes())) {
-					finalKeyValues.add(kv);
-				}
+			if (foundReviewerName == false) {
+				return;
 			}
+			
 			// Format and output the values
 			StringBuilder builder = new StringBuilder();
 	    	builder.append("\n");

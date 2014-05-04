@@ -1,8 +1,8 @@
-package sortmerge;
+package bsbm.repartition;
 
 /**
- * Reduce Side Join BSBM Q2
- * @date March 2014
+ * Repartition Join BSBM Q2
+ * @date April 2014
  * @author Albert Haque
  */
 
@@ -25,9 +25,11 @@ import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
-import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 
-public class ReduceSideJoinBSBMQ2 {
+import bsbm.sortmerge.SharedServices;
+import bsbm.sortmerge.KeyValueArrayWritable;
+
+public class RepartitionJoinQ2 {
 	
 	// Begin Query Information
 	private static String ProductXYZ = "bsbm-inst_dataFromProducer284/Product13895";
@@ -63,41 +65,45 @@ public class ReduceSideJoinBSBMQ2 {
 	    hConf.set("scan.table", args[0]);
 	    hConf.set("hbase.zookeeper.property.clientPort", "2181");
 	    
-		startJob_Stage1(args, hConf);
+		startJob_Stage1(args);
 	}
 	
 	// MapReduce Stage-1 Job
-	public static Job startJob_Stage1(String[] args, Configuration hConf) throws IOException {
+	public static Job startJob_Stage1(String[] args) throws IOException {
 		
 		// args[0] = hbase table name
 		// args[1] = zookeeper
 
-		/*
-		 * MapReduce Stage-1 Job
-		 * Retrieve a list of subjects and their attributes
-		 */
-	    Scan scan1 = new Scan();		
+		Configuration hConf = HBaseConfiguration.create(new Configuration());
+	    hConf.set("hbase.zookeeper.quorum", args[1]);
+	    hConf.set("scan.table", args[0]);
+	    hConf.set("hbase.zookeeper.property.clientPort", "2181");
+
+	    Scan scan = new Scan();		
 		Job job1 = new Job(hConf);
-		job1.setJobName("BSBM-Q2-ReduceSideJoin");
-		job1.setJarByClass(ReduceSideJoinBSBMQ2.class);
-		// Change caching and number of time stamps to speed up the scan
-		scan1.setCaching(500);        
-		scan1.setMaxVersions(200);
-		scan1.setCacheBlocks(false);
+		job1.setJobName("BSBM-Q2-RepartitionJoin");
+		job1.setJarByClass(RepartitionJoinQ2.class);
+		// Change caching to speed up the scan
+		scan.setCaching(500);        
+		scan.setCacheBlocks(false);
 		
 		// Mapper settings
 		TableMapReduceUtil.initTableMapperJob(
-				args[0],		// input HBase table name
-				scan1,			// Scan instance to control CF and attribute selection
-				ReduceSideJoin_MapperStage1.class,	// mapper class
-				Text.class,		// mapper output key
-				KeyValueArrayWritable.class,  		// mapper output value
+				args[0],        // input HBase table name
+				scan,           // Scan instance to control CF and attribute selection
+				RepartitionMapper.class,     // mapper
+				CompositeKeyWritable.class,   // mapper output key
+				KeyValueArrayWritable.class,  // mapper output value
 				job1);
-
+		
+		// Repartition settings
+		job1.setPartitionerClass(CompositePartitioner.class);
+		job1.setSortComparatorClass(CompositeSortComparator.class);
+		job1.setGroupingComparatorClass(CompositeGroupingComparator.class);
+		
 		// Reducer settings
-		job1.setReducerClass(ReduceSideJoin_ReducerStage1.class);   
-		job1.setOutputFormatClass(TextOutputFormat.class);
-		//job1.setNumReduceTasks(1);  // Uncomment this if running into problems on 2+ node cluster
+		job1.setReducerClass(RepartitionReducer.class);
+		//job1.setNumReduceTasks(1);
 		FileOutputFormat.setOutputPath(job1, new Path("output/BSBMQ2"));
 
 		try {
@@ -109,7 +115,7 @@ public class ReduceSideJoinBSBMQ2 {
 	}
 
 	
-	public static class ReduceSideJoin_MapperStage1 extends TableMapper<Text, KeyValueArrayWritable> {
+	public static class RepartitionMapper extends TableMapper<CompositeKeyWritable, KeyValueArrayWritable> {
 		
 		private Text text = new Text();
 
@@ -197,14 +203,11 @@ WHERE {
 			}
 
 			// Write the output product key-value
-			context.write(text, new KeyValueArrayWritable(SharedServices.listToArray(keyValuesToTransmit)));
+			context.write(new CompositeKeyWritable(rowKey,1), new KeyValueArrayWritable(SharedServices.listToArray(keyValuesToTransmit)));
 		}
 	}
 	
-	// Output format:
-	// Key: HBase Row Key (subject)
-	// Value: All projected attributes for the row key (subject)
-	public static class ReduceSideJoin_ReducerStage1 extends Reducer<Text, KeyValueArrayWritable, Text, Text>  {
+	public static class RepartitionReducer extends Reducer<CompositeKeyWritable, KeyValueArrayWritable, Text, Text>  {
 		
 	    HTable table;
 
@@ -214,31 +217,8 @@ WHERE {
 	      table = new HTable(conf, conf.get("scan.table"));
 	    }
 
-		public void reduce(Text key, Iterable<KeyValueArrayWritable> values, Context context) throws IOException, InterruptedException {
-			/* BERLIN SPARQL BENHCMARK QUERY 2
-			   ----------------------------------------
-	SELECT
-		?label ?comment ?producer ?productFeature ?propertyTextual1 ?propertyTextual2 ?propertyTextual3
-	 	?propertyNumeric1 ?propertyNumeric2 ?propertyTextual4 ?propertyTextual5 ?propertyNumeric4 
-	WHERE {
-		[TriplePattern-01]	%ProductXYZ% rdfs:label ?label .
-		[TriplePattern-02]	%ProductXYZ% rdfs:comment ?comment .
-		[TriplePattern-03]	%ProductXYZ% bsbm:productPropertyTextual1 ?propertyTextual1 .
-		[TriplePattern-04]	%ProductXYZ% bsbm:productPropertyTextual2 ?propertyTextual2 .
-		[TriplePattern-05]	%ProductXYZ% bsbm:productPropertyTextual3 ?propertyTextual3 .
-		[TriplePattern-06]	%ProductXYZ% bsbm:productPropertyNumeric1 ?propertyNumeric1 .
-		[TriplePattern-07]	%ProductXYZ% bsbm:productPropertyNumeric2 ?propertyNumeric2 .
-		[TriplePattern-08]	%ProductXYZ% dc:publisher ?p . 
-		[TriplePattern-09]	%ProductXYZ% bsbm:producer ?p .
-		[TriplePattern-10]	?p rdfs:label ?producer .
-		[TriplePattern-11]	%ProductXYZ% bsbm:productFeature ?f .
-		[TriplePattern-12]	?f rdfs:label ?productFeature .
-		[TriplePattern-13]	OPTIONAL { %ProductXYZ% bsbm:productPropertyTextual4 ?propertyTextual4 }
-		[TriplePattern-14]	OPTIONAL { %ProductXYZ% bsbm:productPropertyTextual5 ?propertyTextual5 }
-		[TriplePattern-15]	OPTIONAL { %ProductXYZ% bsbm:productPropertyNumeric4 ?propertyNumeric4 }
-	}
-			   ---------------------------------------
-			 */
+		public void reduce(CompositeKeyWritable key, Iterable<KeyValueArrayWritable> values, Context context) throws IOException, InterruptedException {
+
 			StringBuilder builder = new StringBuilder();
 			byte[] publisherKey = null;
 			builder.append("\n");
@@ -269,7 +249,7 @@ WHERE {
 				builder.append("\n");
 			}
 			
-			context.write(key, new Text(builder.toString()));
+			context.write(new Text(key.getValue()), new Text(builder.toString()));
 		}
 	}	    
 }

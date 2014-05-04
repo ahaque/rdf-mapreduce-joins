@@ -1,7 +1,7 @@
-package repartition;
+package bsbm.repartition;
 
 import org.apache.hadoop.mapreduce.Partitioner;
-import sortmerge.KeyValueArrayWritable;
+import bsbm.sortmerge.KeyValueArrayWritable;
  
 public class CompositePartitioner extends Partitioner<CompositeKeyWritable, KeyValueArrayWritable> {
  

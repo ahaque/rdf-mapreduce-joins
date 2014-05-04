@@ -1,4 +1,4 @@
-package repartition;
+package bsbm.repartition;
 
 /**
  * Repartition Join BSBM Q5
@@ -28,8 +28,8 @@ import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 
-import sortmerge.KeyValueArrayWritable;
-import sortmerge.SharedServices;
+import bsbm.sortmerge.KeyValueArrayWritable;
+import bsbm.sortmerge.SharedServices;
 
 public class RepartitionJoinQ5 {
 	

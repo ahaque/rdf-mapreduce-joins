@@ -1,7 +1,7 @@
-package sortmerge;
+package bsbm.repartition;
 
 /**
- * Reduce Side Join BSBM Q7
+ * Repartition Join BSBM Q7
  * @date April 2014
  * @author Albert Haque
  */
@@ -28,12 +28,13 @@ import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 
-public class ReduceSideJoinBSBMQ7 {
+import bsbm.sortmerge.KeyValueArrayWritable;
+import bsbm.sortmerge.SharedServices;
+
+public class RepartitionJoinQ7 {
 	
 	// Begin Query Information
-	//private static String ProductXYZ = "bsbm-inst_dataFromProducer105/Product4956"; // BSBM 10M
-	private static String ProductXYZ = "bsbm-inst_dataFromProducer5145/Product260560"; // BSBM 100M
-	
+	private static String ProductXYZ = "bsbm-inst_dataFromProducer105/Product4956";
 	// End Query Information
 			
 	public static void main(String[] args) throws ClassNotFoundException, IOException, InterruptedException {
@@ -62,8 +63,8 @@ public class ReduceSideJoinBSBMQ7 {
 
 	    Scan scan1 = new Scan();		
 		Job job1 = new Job(hConf);
-		job1.setJobName("BSBM-Q7-ReduceSideJoin");
-		job1.setJarByClass(ReduceSideJoinBSBMQ7.class);
+		job1.setJobName("BSBM-Q7-RepartitionJoin");
+		job1.setJarByClass(RepartitionJoinQ7.class);
 		// Change caching and number of time stamps to speed up the scan
 		scan1.setCaching(500);        
 		scan1.setMaxVersions(200);
@@ -73,14 +74,18 @@ public class ReduceSideJoinBSBMQ7 {
 		TableMapReduceUtil.initTableMapperJob(
 				args[0],		// input HBase table name
 				scan1,			// Scan instance to control CF and attribute selection
-				ReduceSideJoin_MapperStage1.class,	// mapper class
-				Text.class,		// mapper output key
+				RepartitionMapper.class,	// mapper class
+				CompositeKeyWritable.class,		// mapper output key
 				KeyValueArrayWritable.class,  		// mapper output value
 				job1);
 
 		// Reducer settings
-		job1.setReducerClass(ReduceSideJoin_ReducerStage1.class);   
-		//job1.setReducerClass(SharedServices.ReduceSideJoin_Reducer.class);   
+		job1.setReducerClass(RepartitionReducer.class);   
+		
+		// Repartition settings
+		job1.setPartitionerClass(CompositePartitioner.class);
+		job1.setSortComparatorClass(CompositeSortComparator.class);
+		job1.setGroupingComparatorClass(CompositeGroupingComparator.class);
 		
 		job1.setOutputFormatClass(TextOutputFormat.class);
 		//job1.setNumReduceTasks(1);  // Uncomment this if running into problems on 2+ node cluster
@@ -95,9 +100,8 @@ public class ReduceSideJoinBSBMQ7 {
 	}
 
 	
-	public static class ReduceSideJoin_MapperStage1 extends TableMapper<Text, KeyValueArrayWritable> {
+	public static class RepartitionMapper extends TableMapper<CompositeKeyWritable, KeyValueArrayWritable> {
 		
-		private Text text = new Text();
 	    HTable table;
 
 	    @Override
@@ -133,7 +137,6 @@ public class ReduceSideJoinBSBMQ7 {
 				}
 			} ---------------------------------------*/
 			String rowKey = new String(value.getRow());
-			text.set(rowKey);
 			
 			ArrayList<KeyValue> keyValuesToTransmit = new ArrayList<KeyValue>();
 			List<KeyValue> rowData = value.list();
@@ -173,7 +176,7 @@ public class ReduceSideJoinBSBMQ7 {
 				if (requiredCount < 4) {
 					return;
 				} // Otherwise this row is a valid offer
-				context.write(text, new KeyValueArrayWritable(SharedServices.listToArray(keyValuesToTransmit)));
+				context.write(new CompositeKeyWritable(rowKey, 1), new KeyValueArrayWritable(SharedServices.listToArray(keyValuesToTransmit)));
 				return;
 			}
 			// OPT-02, If the row is a review
@@ -206,14 +209,14 @@ public class ReduceSideJoinBSBMQ7 {
 				if (requiredCount < 3) {
 					return;
 				} // Otherwise this row is a valid offer
-				context.write(text, new KeyValueArrayWritable(SharedServices.listToArray(keyValuesToTransmit)));
+				context.write(new CompositeKeyWritable(rowKey, 2), new KeyValueArrayWritable(SharedServices.listToArray(keyValuesToTransmit)));
 				return;
 			}
 		}
 	}
 	
 
-	public static class ReduceSideJoin_ReducerStage1 extends Reducer<Text, KeyValueArrayWritable, Text, Text>  {
+	public static class RepartitionReducer extends Reducer<CompositeKeyWritable, KeyValueArrayWritable, Text, Text>  {
 		
 	    HTable table;
 
@@ -223,8 +226,10 @@ public class ReduceSideJoinBSBMQ7 {
 	      table = new HTable(conf, conf.get("scan.table"));
 	    }
 
-		public void reduce(Text key, Iterable<KeyValueArrayWritable> values, Context context) throws IOException, InterruptedException {
+		public void reduce(CompositeKeyWritable key, Iterable<KeyValueArrayWritable> values, Context context) throws IOException, InterruptedException {
 			
+			// TableTag = 1 => Review
+			// TableTag = 2 => Offer
 			List<KeyValue> finalKeyValues = new ArrayList<KeyValue>();
 			// TP-00
 			Result productResult = table.get(new Get(ProductXYZ.getBytes()));
@@ -296,7 +301,7 @@ public class ReduceSideJoinBSBMQ7 {
 	        	builder.append(triple[0] + "\t" + triple[1] + "\t" + triple[2] +"\n");
 	        }
 
-			context.write(key, new Text(builder.toString()));
+			context.write(new Text(key.getValue()), new Text(builder.toString()));
 		}
 	}	    
 }
