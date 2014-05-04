@@ -32,7 +32,7 @@ public class LUBMDataSetProcessor {
     "<http://www."
     };
 
-  public static final String[] URL_ABBREVIATIONS = {"rdf_", "lubm_", ""};
+  public static final String[] URL_ABBREVIATIONS = {"rdf_", "ub_", ""};
 
   public static final Pattern pattern = Pattern.compile("([^\"]\\S*|\".+?\")\\s*");
   public static final Pattern valuePattern = Pattern.compile("^^", Pattern.LITERAL);
