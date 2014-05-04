@@ -17,8 +17,8 @@ import org.apache.hadoop.hbase.client.Put;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.mapreduce.HFileOutputFormat;
 import org.apache.hadoop.hbase.mapreduce.PutSortReducer;
-//import org.apache.hadoop.hbase.regionserver.StoreFile.BloomType; // Hbase 0.94
-import org.apache.hadoop.hbase.regionserver.BloomType; // hbase 0.96
+import org.apache.hadoop.hbase.regionserver.StoreFile.BloomType; // Hbase 0.94
+//import org.apache.hadoop.hbase.regionserver.BloomType; // hbase 0.96
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
