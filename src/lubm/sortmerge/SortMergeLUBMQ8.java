@@ -120,7 +120,7 @@ public class SortMergeLUBMQ8 {
 				} else if (Arrays.equals(kv.getValue(), "ub_memberOf".getBytes())) {
 					// TP-03
 					toTransmit.add(kv);
-				} else if (Arrays.equals(kv.getValue(), "ub_emailAddress".getBytes())) {
+				} else if (Arrays.equals(kv.getQualifier(), "ub_emailAddress".getBytes())) {
 					// TP-05
 					toTransmit.add(kv);
 				}
@@ -174,11 +174,11 @@ public class SortMergeLUBMQ8 {
 			g.addColumn(SharedServices.CF_AS_BYTES, "ub_Department".getBytes());
 			g.addColumn(SharedServices.CF_AS_BYTES, "University0.edu".getBytes());
 			Result departmentResult = table.get(g);
-		
+			// TP-04
 			byte[] subOrg = departmentResult.getValue(SharedServices.CF_AS_BYTES,"University0.edu".getBytes());
 			if (subOrg == null) { return; }
 			if (!Arrays.equals(subOrg, "ub_subOrganizationOf".getBytes())) { return; }
-			
+			// TP-02
 			byte[] predType = departmentResult.getValue(SharedServices.CF_AS_BYTES,"ub_Department".getBytes());
 			if (predType == null) {	return;	}
 			if (!Arrays.equals(predType, "rdf_type".getBytes())) { return; }
