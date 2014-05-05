@@ -82,8 +82,8 @@ public class SortMergeLUBMQ7 {
 				job);
 
 		// Reducer settings
-		//job.setReducerClass(SortMergeReducer.class);    // reducer class
-		job.setReducerClass(SharedServices.ReduceSideJoin_Reducer.class);
+		job.setReducerClass(SortMergeReducer.class);    // reducer class
+		//job.setReducerClass(SharedServices.ReduceSideJoin_Reducer.class);
 		//job.setNumReduceTasks(1);    // at least one, adjust as required
 	
 		FileOutputFormat.setOutputPath(job, new Path("output/LUBMQ7"));
@@ -113,18 +113,24 @@ public class SortMergeLUBMQ7 {
 		   ---------------------------------------
 		 */
 	
-			List<KeyValue> rowData = value.list();
 			List<KeyValue> toTransmit = new ArrayList<KeyValue>();
-			for (KeyValue kv : rowData) {
+			for (KeyValue kv : value.list()) {
 				// TP-01
 				if (Arrays.equals(kv.getQualifier(), "ub_Student".getBytes())) {
 					if (!Arrays.equals(kv.getValue(), "rdf_type".getBytes())) {
 						return;
 					}
 				} else if (Arrays.equals(kv.getValue(), "ub_takesCourse".getBytes())) {
+					// TP-03
 					toTransmit.add(kv);
-					context.write(new Text(kv.getQualifier()), new KeyValueArrayWritable(SharedServices.listToArray(toTransmit)));
 				}
+			}
+			
+			// Use the course as the key because the reducer will operate on the course, not student
+			for (KeyValue kv : toTransmit) {
+				List<KeyValue> singleKv = new ArrayList<KeyValue>();
+				singleKv.add(kv);
+				context.write(new Text(kv.getQualifier()), new KeyValueArrayWritable(SharedServices.listToArray(singleKv)));
 			}
 		}
 	}
@@ -156,61 +162,39 @@ public class SortMergeLUBMQ7 {
 			}
 			   ---------------------------------------
 			 */
-
-			List<KeyValue> finalKeyValues = new ArrayList<KeyValue>();
-
-			KeyValue kv_university = null;
-			KeyValue kv_department = null;
-			for (KeyValueArrayWritable array : values) {
-				for (KeyValue kv : (KeyValue[]) array.toArray()) {
-					if (Arrays.equals(kv.getValue(), "ub_undergraduateDegreeFrom".getBytes())) {
-						kv_university = kv;
-						finalKeyValues.add(kv);
-					} else if (Arrays.equals(kv.getValue(), "ub_memberOf".getBytes())) {
-						kv_department = kv;
-						finalKeyValues.add(kv);
-					}
-				}
-			}
-			if (kv_university == null) {
+			// Find the course name
+			// Get the course information
+			// TP-02
+			Get g = new Get(key.toString().getBytes());
+			g.addColumn(SharedServices.CF_AS_BYTES, "ub_Course".getBytes());
+			Result courseResult = table.get(g);
+			byte[] courseType = courseResult.getValue(SharedServices.CF_AS_BYTES,"ub_Course".getBytes());
+			if (courseType == null) {
 				return;
 			}
-			// TP-02
-			Get g = new Get(kv_university.getQualifier());
-			g.addColumn(SharedServices.CF_AS_BYTES, "ub_University".getBytes());
-			Result universityResult = table.get(g);
-			byte[] universityPredicate = universityResult.getValue(SharedServices.CF_AS_BYTES,"ub_University".getBytes());
-			if (!Arrays.equals(universityPredicate, "rdf_type".getBytes())) {
+			if (!Arrays.equals(courseType, "rdf_type".getBytes())) {
 				return;
 			}
 			
-			// Find and get department information
-			// TP-04
-			if (kv_department == null) {
+			// Find and get professor information
+			Get g1 = new Get("Department0.University0.edu/AssociateProfessor0".getBytes());
+			g1.addColumn(SharedServices.CF_AS_BYTES, key.toString().getBytes());
+			Result professorResult = table.get(g1);
+			byte[] teacherOf = professorResult.getValue(SharedServices.CF_AS_BYTES, key.toString().getBytes());
+			if (teacherOf == null) {
 				return;
 			}
-			// TP-03
-			Result departmentResult = table.get(new Get(kv_department.getQualifier()));
-			// TP-05
-			for (KeyValue kv : departmentResult.list()) {
-				if (Arrays.equals(kv.getValue(), "ub_subOrganizationOf".getBytes())) {
-					if (!Arrays.equals(kv.getQualifier(), kv_university.getQualifier())) {
-						return;
-					}
-				}
+			if (!Arrays.equals(teacherOf, "ub_teacherOf".getBytes())) {
+				return;
 			}
-
-			// Format and output the values
+			
+			// If we've made it this far, then output the result
 			StringBuilder builder = new StringBuilder();
 			builder.append("\n");
-			for (KeyValue kv : finalKeyValues) {
-				String[] triple = null;
-				try {
-					triple = SharedServices.keyValueToTripleString(kv);
-				} catch (ClassNotFoundException e) {
-					e.printStackTrace();
+			for (KeyValueArrayWritable array : values) {
+				for (KeyValue kv : (KeyValue[]) array.toArray()) {
+					builder.append(new String(kv.getRow()) + "\t" + new String(kv.getQualifier()) + "\n");
 				}
-				builder.append("\t" + triple[1] + "\t" + triple[2] + "\n");
 			}
 			context.write(key, new Text(builder.toString()));
 		}
