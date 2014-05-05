@@ -29,7 +29,7 @@ import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 
 /**
  * @author David Alves, Albert Haque
- * @date April 2014
+ * @date May 2014
  */
 public class LUBMHBaseLoader extends Mapper<LongWritable, Text, ImmutableBytesWritable, Put> {
 	
@@ -133,20 +133,13 @@ public class LUBMHBaseLoader extends Mapper<LongWritable, Text, ImmutableBytesWr
     // Arguments: <hbase table name> <zk quorum> <input path> <output path>
     Configuration conf = new Configuration();
     conf.set("hbase.mapred.outputtable", args[0]);
-    conf.set("hbase.hstore.blockingStoreFiles", "25");
-    conf.set("hbase.hregion.memstore.block.multiplier", "8");
-    conf.set("hbase.regionserver.handler.count", "50");
-    conf.set("hbase.regions.percheckin", "30");
-    conf.set("hbase.regionserver.globalMemcache.upperLimit", "0.3");
-    conf.set("hbase.regionserver.globalMemcache.lowerLimit", "0.15");
     conf.set("hbase.hregion.max.filesize", "10737418240");
 
     Configuration hConf = HBaseConfiguration.create(conf);
     hConf.set("hbase.zookeeper.quorum", args[1]);
     hConf.set("hbase.zookeeper.property.clientPort", "2181");
 
-    try {
-      @SuppressWarnings("resource")
+    //try {
 	HBaseAdmin admin = new HBaseAdmin(hConf);
       if (!admin.tableExists(hbaseTable)) {
         System.out.println("Could not find HBase table " + hbaseTable + ", creating now");
@@ -154,19 +147,19 @@ public class LUBMHBaseLoader extends Mapper<LongWritable, Text, ImmutableBytesWr
         desc.setName(hbaseTable.getBytes());
         HColumnDescriptor colDesc = new HColumnDescriptor(LUBMDataSetProcessor.COLUMN_FAMILY);
         colDesc.setBloomFilterType(BloomType.ROWCOL);
-        colDesc.setCacheBloomsOnWrite(true);
+        //colDesc.setCacheBloomsOnWrite(true);
         colDesc.setMaxVersions(200);
         desc.addFamily(colDesc);
         admin.createTable(desc, splitKeys);
       }
       hTable = new HTable(hConf, hbaseTable);
       System.out.println("Table created successfully");
-    } catch (Exception e) {
-      throw new RuntimeException("Error while accessing hbase....");
-    }
+      admin.close();
+//    } catch (Exception e) {
+//      throw new RuntimeException("Error while accessing hbase....");
+//    }
 
 
-    @SuppressWarnings("deprecation")
 	Job job = new Job(conf);
     job.setJobName("LUBMToHBaseLoader");
     job.setJarByClass(LUBMHBaseLoader.class);

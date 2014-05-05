@@ -7,13 +7,16 @@ package lubm.sortmerge;
  */
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hbase.HBaseConfiguration;
 import org.apache.hadoop.hbase.KeyValue;
+import org.apache.hadoop.hbase.client.Get;
+import org.apache.hadoop.hbase.client.HTable;
 import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
@@ -22,6 +25,7 @@ import org.apache.hadoop.hbase.mapreduce.TableMapper;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
+import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 
 import bsbm.sortmerge.KeyValueArrayWritable;
@@ -31,11 +35,7 @@ import bsbm.sortmerge.SharedServices;
 public class SortMergeLUBMQ2 {
 	
 	// Begin Query Information
-	private static String ProductFeature1 = "bsbm-inst_ProductFeature35";
-	private static String ProductFeature2 = "bsbm-inst_ProductFeature31";
-	private static String ProductType = "bsbm-inst_ProductType183";
-	private static int x = 0;
-	private static String[] ProjectedVariables = {"rdfs_label"};
+	
 	// End Query Information
 		
 	public static void main(String[] args) throws ClassNotFoundException, IOException, InterruptedException {
@@ -64,7 +64,6 @@ public class SortMergeLUBMQ2 {
 	    Scan scan = new Scan();
 	    //scan.setFilter(rowColBloomFilter());
 		
-		@SuppressWarnings("deprecation")
 		Job job = new Job(hConf);
 		job.setJobName("LUBM-Q2-SortMerge");
 		job.setJarByClass(SortMergeLUBMQ2.class);
@@ -76,16 +75,16 @@ public class SortMergeLUBMQ2 {
 		TableMapReduceUtil.initTableMapperJob(
 				args[0],        // input HBase table name
 				scan,             // Scan instance to control CF and attribute selection
-				ReduceSideJoin_Mapper.class,   // mapper
+				SortMergeMapper.class,   // mapper
 				Text.class,         // mapper output key
 				KeyValueArrayWritable.class,  // mapper output value
 				job);
 
 		// Reducer settings
-		job.setReducerClass(SharedServices.ReduceSideJoin_Reducer.class);    // reducer class
-		job.setNumReduceTasks(1);    // at least one, adjust as required
+		job.setReducerClass(SortMergeReducer.class);    // reducer class
+		//job.setNumReduceTasks(1);    // at least one, adjust as required
 	
-		FileOutputFormat.setOutputPath(job, new Path("output/BSBMQ1"));
+		FileOutputFormat.setOutputPath(job, new Path("output/LUBMQ2"));
 
 		try {
 			System.exit(job.waitForCompletion(true) ? 0 : 1);
@@ -96,68 +95,137 @@ public class SortMergeLUBMQ2 {
 	}
 	
 	
-	public static class ReduceSideJoin_Mapper extends TableMapper<Text, KeyValueArrayWritable> {
+	public static class SortMergeMapper extends TableMapper<Text, KeyValueArrayWritable> {
 		
 		private Text text = new Text();
 
 		public void map(ImmutableBytesWritable row, Result value, Context context) throws InterruptedException, IOException {
-		/* BERLIN SPARQL BENHCMARK QUERY 1
+		/* LUBM QUERY 2
 		   ----------------------------------------
-		   SELECT DISTINCT ?product ?label
-			WHERE { 
- [TriplePattern-1] ?product rdfs:label ?label .  
- [TriplePattern-2] ?product a %ProductType% .
- [TriplePattern-3] ?product bsbm:productFeature %ProductFeature1% . 
- [TriplePattern-4] ?product bsbm:productFeature %ProductFeature2% . 
- [TriplePattern-5] ?product bsbm:productPropertyNumeric1 ?value1 . 
- [TriplePattern-6] FILTER (?value1 > %x%) 
-				}
-			ORDER BY ?label
-			LIMIT 10
+		PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+		PREFIX ub: <http://www.lehigh.edu/~zhp2/2004/0401/univ-bench.owl#>
+		SELECT ?X, ?Y, ?Z
+		WHERE
+		{ [TP-01] ?X rdf:type ub:GraduateStudent .
+		  [TP-02] ?Y rdf:type ub:University .
+		  [TP-03] ?Z rdf:type ub:Department .
+		  [TP-04] ?X ub:memberOf ?Z .
+		  [TP-05] ?Z ub:subOrganizationOf ?Y .
+		  [TP-06] ?X ub:undergraduateDegreeFrom ?Y}
 		   ---------------------------------------
 		 */
-			// TriplePattern-2
-			byte[] item2 = value.getValue(SharedServices.CF_AS_BYTES, Bytes.toBytes(ProductType));
-			if (item2 == null) { return; }
-			String item2_str = new String(item2);
-			if (!item2_str.equals("rdf_type")) { return; }
-			
-			// TriplePattern-3
-			byte[] item3 = value.getValue(SharedServices.CF_AS_BYTES, Bytes.toBytes(ProductFeature1));
-			if (item3 == null) { return; }
-			String item3_str = new String(item3);
-			if (!item3_str.equals("bsbm-voc_productFeature")) { return; }
-	
-			// TriplePattern-4
-			byte[] item4 = value.getValue(SharedServices.CF_AS_BYTES, Bytes.toBytes(ProductFeature2));
-			if (item4 == null) { return; }
-			String item4_str = new String(item4);
-		    if (!item4_str.equals("bsbm-voc_productFeature")) { return; }
-
-			// TriplePattern-6 - Since this is a literal, the predicate is the column name
-			byte[] item6 = value.getValue(SharedServices.CF_AS_BYTES, Bytes.toBytes("bsbm-voc_productPropertyNumeric1"));
-			if (item6 == null) { return; }
-			int number6 = ByteBuffer.wrap(item6).getInt();
-			if (number6 <= x) { return; }
+			// TriplePattern-01
+			byte[] item1 = value.getValue(SharedServices.CF_AS_BYTES, Bytes.toBytes("ub_GraduateStudent"));
+			if (item1 == null) { return; }
+			String item1_str = new String(item1);
+			if (!item1_str.equals("rdf_type")) { return; }
 			
 			// Subject (Mapper Output: Key)
 			text.set(new String(value.getRow()));
 			
 			// HBase row for that subject (Mapper Output: Value)
 			List<KeyValue> entireRowAsList = value.list();
-			KeyValue[] entireRow = new KeyValue[ProjectedVariables.length];
+			List<KeyValue> toTransmitList = new ArrayList<KeyValue>();
 			
-			int index = 0;
+			// Get the KVs to transmit
 			for (int i = 0; i < entireRowAsList.size(); i++) {
 				// Reduce data sent across network by writing only columns that we know will be used
-				for (String project : ProjectedVariables) {
-					if (new String(entireRowAsList.get(i).getQualifier()).equals(project)) {
-						entireRow[index] = entireRowAsList.get(i);
-						index++;
+				if (Arrays.equals(entireRowAsList.get(i).getValue(), "ub_memberOf".getBytes())) {
+					toTransmitList.add(entireRowAsList.get(i));
+				} else if (Arrays.equals(entireRowAsList.get(i).getValue(), "ub_undergraduateDegreeFrom".getBytes())) {
+					toTransmitList.add(entireRowAsList.get(i));
+				}
+			}
+	    	context.write(text, new KeyValueArrayWritable(SharedServices.listToArray(toTransmitList)));
+		}
+	}
+	
+	// Output format:
+	// Key: HBase Row Key (subject)
+	// Value: All projected attributes for the row key (subject)
+	public static class SortMergeReducer extends Reducer<Text, KeyValueArrayWritable, Text, Text> {
+
+		HTable table;
+		@Override
+		protected void setup(Context context) throws IOException,
+				InterruptedException {
+			Configuration conf = context.getConfiguration();
+			table = new HTable(conf, conf.get("scan.table"));
+		}
+
+		public void reduce(Text key, Iterable<KeyValueArrayWritable> values,
+				Context context) throws IOException, InterruptedException {
+			/* LUBM QUERY 2
+			   ----------------------------------------
+			SELECT ?X, ?Y, ?Z
+			WHERE
+			{ [TP-01] ?X rdf:type ub:GraduateStudent .
+			  [TP-02] ?Y rdf:type ub:University .
+			  [TP-03] ?Z rdf:type ub:Department .
+			  [TP-04] ?X ub:memberOf ?Z .
+			  [TP-05] ?Z ub:subOrganizationOf ?Y .
+			  [TP-06] ?X ub:undergraduateDegreeFrom ?Y}
+			   ---------------------------------------
+			 */
+
+			List<KeyValue> finalKeyValues = new ArrayList<KeyValue>();
+
+			// Find and get university information
+			// TP-06
+			KeyValue kv_university = null;
+			KeyValue kv_department = null;
+			for (KeyValueArrayWritable array : values) {
+				for (KeyValue kv : (KeyValue[]) array.toArray()) {
+					if (Arrays.equals(kv.getValue(), "ub_undergraduateDegreeFrom".getBytes())) {
+						kv_university = kv;
+						finalKeyValues.add(kv);
+					} else if (Arrays.equals(kv.getValue(), "ub_memberOf".getBytes())) {
+						kv_department = kv;
+						finalKeyValues.add(kv);
 					}
 				}
 			}
-	    	context.write(text, new KeyValueArrayWritable(entireRow));
+			if (kv_university == null) {
+				return;
+			}
+			// TP-02
+			Get g = new Get(kv_university.getQualifier());
+			g.addColumn(SharedServices.CF_AS_BYTES, "ub_University".getBytes());
+			Result universityResult = table.get(g);
+			byte[] universityPredicate = universityResult.getValue(SharedServices.CF_AS_BYTES,"ub_University".getBytes());
+			if (!Arrays.equals(universityPredicate, "rdf_type".getBytes())) {
+				return;
+			}
+			
+			// Find and get department information
+			// TP-04
+			if (kv_department == null) {
+				return;
+			}
+			// TP-03
+			Result departmentResult = table.get(new Get(kv_department.getQualifier()));
+			// TP-05
+			for (KeyValue kv : departmentResult.list()) {
+				if (Arrays.equals(kv.getValue(), "ub_subOrganizationOf".getBytes())) {
+					if (!Arrays.equals(kv.getQualifier(), kv_university.getQualifier())) {
+						return;
+					}
+				}
+			}
+
+			// Format and output the values
+			StringBuilder builder = new StringBuilder();
+			builder.append("\n");
+			for (KeyValue kv : finalKeyValues) {
+				String[] triple = null;
+				try {
+					triple = SharedServices.keyValueToTripleString(kv);
+				} catch (ClassNotFoundException e) {
+					e.printStackTrace();
+				}
+				builder.append("\t" + triple[1] + "\t" + triple[2] + "\n");
+			}
+			context.write(key, new Text(builder.toString()));
 		}
-	}		    
+	}
 }
