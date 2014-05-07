@@ -158,7 +158,7 @@ public class BSBMHBaseLoader extends Mapper<LongWritable, Text, ImmutableBytesWr
       System.out.println("Table created successfully");
       admin.close();
     } catch (Exception e) {
-      throw new RuntimeException("Error while accessing hbase....");
+      throw new RuntimeException("USER ERROR: Error while accessing hbase....");
     }
 
 
