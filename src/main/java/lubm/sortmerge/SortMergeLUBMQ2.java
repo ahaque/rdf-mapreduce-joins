@@ -1,4 +1,4 @@
-package lubm.sortmerge;
+package main.java.lubm.sortmerge;
 
 /**
  * Sort Merge Join LUBM Q2
@@ -10,6 +10,10 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+
+import main.java.bsbm.sortmerge.ReduceSideJoinBSBMQ12;
+import main.java.bsbm.sortmerge.ReduceSideJoinBSBMQ12.ReduceSideJoin_MapperStage1;
+import main.java.bsbm.sortmerge.ReduceSideJoinBSBMQ12.ReduceSideJoin_ReducerStage1;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
@@ -27,9 +31,10 @@ import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
+import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 
-import bsbm.sortmerge.KeyValueArrayWritable;
-import bsbm.sortmerge.SharedServices;
+import main.java.bsbm.sortmerge.KeyValueArrayWritable;
+import main.java.bsbm.sortmerge.SharedServices;
 
 
 public class SortMergeLUBMQ2 {
@@ -48,57 +53,53 @@ public class SortMergeLUBMQ2 {
 			System.out.println("  " + USAGE_MSG);
 			System.exit(0);
 		}
-		startJob(args);
-	}
-	
-	public static Job startJob(String[] args) throws IOException {
-		
-		// args[0] = hbase table name
-		// args[1] = zookeeper
 		
 		Configuration hConf = HBaseConfiguration.create(new Configuration());
 	    hConf.set("hbase.zookeeper.quorum", args[1]);
 	    hConf.set("scan.table", args[0]);
 	    hConf.set("hbase.zookeeper.property.clientPort", "2181");
-
-	    Scan scan = new Scan();
-	    //scan.setFilter(rowColBloomFilter());
 		
-		Job job = new Job(hConf);
-		job.setJobName("LUBM-Q2-SortMerge");
-		job.setJarByClass(SortMergeLUBMQ2.class);
-		// Change caching to speed up the scan
-		scan.setCaching(500);        
-		scan.setCacheBlocks(false);
+		startJob_Stage1(args, hConf);
+	}
+	
+	public static Job startJob_Stage1(String[] args, Configuration hConf) throws IOException {
+		
+	    Scan scan1 = new Scan();		
+		Job job1 = new Job(hConf);
+		job1.setJobName("LUBM-Q2-SortMerge-Stage1");
+		job1.setJarByClass(ReduceSideJoinBSBMQ12.class);
+		// Change caching and number of time stamps to speed up the scan
+		scan1.setCaching(500);        
+		scan1.setMaxVersions(200);
+		scan1.setCacheBlocks(false);
 		
 		// Mapper settings
 		TableMapReduceUtil.initTableMapperJob(
-				args[0],        // input HBase table name
-				scan,             // Scan instance to control CF and attribute selection
-				SortMergeMapper.class,   // mapper
-				Text.class,         // mapper output key
-				KeyValueArrayWritable.class,  // mapper output value
-				job);
+				args[0],		// input HBase table name
+				scan1,			// Scan instance to control CF and attribute selection
+				Stage1_SortMergeMapper.class,	// mapper class
+				Text.class,		// mapper output key
+				KeyValueArrayWritable.class,  		// mapper output value
+				job1);
 
 		// Reducer settings
-		job.setReducerClass(SortMergeReducer.class);    // reducer class
-		//job.setNumReduceTasks(1);    // at least one, adjust as required
-	
-		FileOutputFormat.setOutputPath(job, new Path("output/LUBMQ2"));
+		job1.setReducerClass(Stage1_SortMergeReducer.class);   
+		job1.setOutputFormatClass(TextOutputFormat.class);
+		//job1.setNumReduceTasks(1);  // Uncomment this if running into problems on 2+ node cluster
+		FileOutputFormat.setOutputPath(job1, new Path("output/LUBMQ2"));
 
 		try {
-			System.exit(job.waitForCompletion(true) ? 0 : 1);
+			job1.waitForCompletion(true);
 		} catch (ClassNotFoundException e) { e.printStackTrace(); }
 		  catch (InterruptedException e) { e.printStackTrace();}
 
-		return job;
+		return job1;
 	}
 	
 	
-	public static class SortMergeMapper extends TableMapper<Text, KeyValueArrayWritable> {
+	
+	public static class Stage1_SortMergeMapper extends TableMapper<Text, KeyValueArrayWritable> {
 		
-		private Text text = new Text();
-
 		public void map(ImmutableBytesWritable row, Result value, Context context) throws InterruptedException, IOException {
 		/* LUBM QUERY 2
 		   ----------------------------------------
@@ -114,14 +115,16 @@ public class SortMergeLUBMQ2 {
 		  [TP-06] ?X ub:undergraduateDegreeFrom ?Y}
 		   ---------------------------------------
 		 */
-			// TriplePattern-01
-			byte[] item1 = value.getValue(SharedServices.CF_AS_BYTES, Bytes.toBytes("ub_GraduateStudent"));
-			if (item1 == null) { return; }
-			String item1_str = new String(item1);
-			if (!item1_str.equals("rdf_type")) { return; }
+			// Determine if this row is a grad student, university, or department
 			
-			// Subject (Mapper Output: Key)
-			text.set(new String(value.getRow()));
+			// TP-01, TP-02, TP-03
+			byte[] x_type = value.getValue(SharedServices.CF_AS_BYTES, Bytes.toBytes("ub_GraduateStudent"));
+			byte[] y_type = value.getValue(SharedServices.CF_AS_BYTES, Bytes.toBytes("ub_GraduateStudent"));
+			byte[] z_type = value.getValue(SharedServices.CF_AS_BYTES, Bytes.toBytes("ub_GraduateStudent"));
+			if (type1 == null) { return; }
+			String type_string = new String(type1);
+			if (!type_string.equals("rdf_type")) { return; }
+			
 			
 			// HBase row for that subject (Mapper Output: Value)
 			List<KeyValue> entireRowAsList = value.list();
@@ -136,14 +139,14 @@ public class SortMergeLUBMQ2 {
 					toTransmitList.add(entireRowAsList.get(i));
 				}
 			}
-	    	context.write(text, new KeyValueArrayWritable(SharedServices.listToArray(toTransmitList)));
+	    	context.write(new Text(value.getRow()), new KeyValueArrayWritable(SharedServices.listToArray(toTransmitList)));
 		}
 	}
 	
 	// Output format:
 	// Key: HBase Row Key (subject)
 	// Value: All projected attributes for the row key (subject)
-	public static class SortMergeReducer extends Reducer<Text, KeyValueArrayWritable, Text, Text> {
+	public static class Stage1_SortMergeReducer extends Reducer<Text, KeyValueArrayWritable, Text, Text> {
 
 		HTable table;
 		@Override

@@ -1,4 +1,4 @@
-package tools;
+package main.java.tools;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.Configured;
@@ -26,8 +26,8 @@ public class TransformNTtoKeys extends Configured implements Tool {
 		@Override
 		protected void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
 			  
-			List<tools.BSBMDataSetProcessor.Triple> tripleList = BSBMDataSetProcessor.process(value.toString());
-			for (tools.BSBMDataSetProcessor.Triple t : tripleList) {
+			List<main.java.tools.BSBMDataSetProcessor.Triple> tripleList = BSBMDataSetProcessor.process(value.toString());
+			for (main.java.tools.BSBMDataSetProcessor.Triple t : tripleList) {
 				context.write(new Text(t.subject), one);
 			}
 			/*
