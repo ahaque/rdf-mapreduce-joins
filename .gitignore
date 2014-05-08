@@ -1,1 +1,7 @@
 /bin
+*.pem
+.classpath
+.project
+*.iml
+.idea
+/target/
