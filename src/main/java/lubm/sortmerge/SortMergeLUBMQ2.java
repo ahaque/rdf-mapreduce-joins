@@ -15,7 +15,6 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hbase.HBaseConfiguration;
 import org.apache.hadoop.hbase.KeyValue;
-import org.apache.hadoop.hbase.client.HTable;
 import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
@@ -29,7 +28,6 @@ import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 
 import bsbm.sortmerge.KeyValueArrayWritable;
-import bsbm.sortmerge.ReduceSideJoinBSBMQ12;
 import bsbm.sortmerge.SharedServices;
 
 
@@ -147,7 +145,7 @@ public class SortMergeLUBMQ2 {
 				// Send this twice. Once for joining with Y and once for joining with Z
 				context.write(new Text(y_reducerKey), new KeyValueArrayWritable(SharedServices.listToArray(toTransmitY)));
 				context.write(new Text(z_reducerKey), new KeyValueArrayWritable(SharedServices.listToArray(toTransmitZ)));
-			}
+			} 
 			
 			// If this row is a university
 			else if (y_type != null) {
@@ -169,7 +167,7 @@ public class SortMergeLUBMQ2 {
 					} 
 				}
 				context.write(new Text(value.getRow()), new KeyValueArrayWritable(SharedServices.listToArray(toTransmit)));
-			}
+			} 
 			
 			// If this row is something else
 			else {
@@ -198,39 +196,45 @@ public class SortMergeLUBMQ2 {
 			 */
 
 			// Find out if this is X JOIN Y or X JOIN Z
-			String join = null;
 			for (KeyValueArrayWritable array : values) {
-				for (KeyValue kv : (KeyValue[]) array.toArray()) {
-					// Find the KV that matches with this row
-					//if (Arrays.equals(kv.getQualifier(), rowKey)) {
-						if (Arrays.equals(kv.getValue(), "ub_memberOf".getBytes())) {
-							join = "XZ";
-							break;
-						} else if (Arrays.equals(kv.getValue(), "ub_undergraduateDegreeFrom".getBytes())) {
-							join = "XY";
-							break;
-						}
-						String temp = new String(kv.getRow()) + "\t" + new String(kv.getValue()) + "\t" + new String(kv.getQualifier());
-						context.write(key, new Text(temp));
-					//}
-				}
-			}
-			
-			if (join == null) {
-				return;
-			}
-			
-			// Output the student and the university they went to for undergrad
-			if (join.equals("XY")) {
+				String join = null;
 				String gradStudent = null;
-				for (KeyValueArrayWritable array : values) {
-					for (KeyValue kv : (KeyValue[]) array.toArray()) {
-						if (Arrays.equals(kv.getQualifier(), "ub_GraduateStudent".getBytes())) {
-							gradStudent = new String(kv.getRow());
-						}
+				String university = null;
+				String department = null;
+				for (KeyValue kv : (KeyValue[]) array.toArray()) {
+					// Grad student getting sent to Z (university) reducer
+					if (Arrays.equals(kv.getValue(), "ub_memberOf".getBytes())) {
+						join = "XZ";
+						gradStudent = new String(kv.getRow());
+						department = key.toString();
+						context.write(new Text(gradStudent + "\t ub_memberOf \t" + department), new Text(""));
+						break;
+					}
+					// Department getting sent to Z (university) reducer
+					else if (Arrays.equals(kv.getValue(), "ub_subOrganizationOf".getBytes())) {
+						join = "XZ";
+						department = key.toString();
+						university = new String(kv.getQualifier());
+						context.write(new Text(department + "\t ub_subOrganizationOf \t" + university), new Text(""));
+						break;
+					}
+					// Grad student getting sent to Y reducer
+					else if (Arrays.equals(kv.getValue(), "ub_undergraduateDegreeFrom".getBytes())) {
+						join = "XY";
+						gradStudent = new String(kv.getRow());
+						university = key.toString();
+						context.write(new Text(gradStudent + "\t ub_undergraduateDegreeFrom \t" + university), new Text(""));
+						break;
 					}
 				}
-				//context.write(new Text(gradStudent + "\t" + key.toString()), new Text(""));
+				if (join == null) {
+					return;
+				}
+				if (join.equals("XZ")) {
+					continue;
+				} else {
+					continue;
+				}
 			}
 		}
 	}
