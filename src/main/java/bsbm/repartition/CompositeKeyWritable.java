@@ -1,3 +1,8 @@
+/**
+ * @author Albert Haque
+ * May 2014
+ */
+
 package bsbm.repartition;
 import java.io.DataInput;
 import java.io.DataOutput;
@@ -17,6 +22,11 @@ public class CompositeKeyWritable implements Writable, WritableComparable<Compos
  
 	public CompositeKeyWritable(String value, int t) {
 		this.value = value;
+		this.tag = t;
+	}
+	
+	public CompositeKeyWritable(byte[] value, int t) {
+		this.value = new String(value);
 		this.tag = t;
 	}
  
