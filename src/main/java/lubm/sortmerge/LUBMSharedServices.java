@@ -10,7 +10,7 @@ import bsbm.sortmerge.SharedServices;
 
 
 public class LUBMSharedServices {
-	
+
 	private static byte[] qualifier_gradStudent = "ub_GraduateStudent".getBytes();
 	private static byte[] qualifier_undergradStudent = "ub_UndergraduateStudent".getBytes();
 	
@@ -87,8 +87,17 @@ public class LUBMSharedServices {
 	}
 	
 	
-	
-	
-	
-	
+	/**
+	 * Counters are used to calculate join cardinality
+	 */
+	public static enum LUBMQ2_COUNTERS {
+        UNIVERSITIES_IN,
+        DEPARTMENTS_IN,
+        UNIVERSITIES_JOINED_ON,
+        DEPARTMENTS_JOINED_ON,
+        UNIVERSITIES_DEPARTMENTS_JOIN_TOTAL,
+        GRAD_STUDENTS_IN,
+        GRAD_STUDENTS_JOINED_ON,
+        UNIV_DEP_GRA_STUDENT_JOIN_TOTAL
+    }
 }

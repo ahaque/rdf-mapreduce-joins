@@ -25,6 +25,7 @@ import org.apache.hadoop.hbase.mapreduce.TableMapper;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
+import org.apache.hadoop.mapreduce.Counter;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.Reducer;
@@ -39,13 +40,25 @@ import bsbm.repartition.CompositePartitioner;
 import bsbm.repartition.CompositeSortComparator;
 import bsbm.sortmerge.KeyValueArrayWritable;
 import bsbm.sortmerge.SharedServices;
+import lubm.sortmerge.LUBMSharedServices.LUBMQ2_COUNTERS;
 
 
 public class RepartitionLUBMQ2 {
 	
 	// Begin Query Information
-	
 	// End Query Information
+	
+	private static Counter univsIn;
+	private static Counter univsJoinedOn;
+	private static Counter depsIn;
+	private static Counter depsJoinedOn;
+	private static Counter univsDepsJoinTotal;
+	private static Counter setupTuplesIn;
+    private static Counter gradStudentsIn;
+    private static Counter gradStudentsJoinedOn;
+    private static Counter univDepGradStudentJoinTotal;
+    private static Counter mapTuplesIn;
+    private static Counter mapTuplesOut;
 		
 	public static void main(String[] args) throws ClassNotFoundException, IOException, InterruptedException {
 
@@ -91,14 +104,13 @@ public class RepartitionLUBMQ2 {
 		// Reducer settings
 		job1.setReducerClass(Stage1_RepartitionReducer.class);  
 		job1.setOutputFormatClass(TextOutputFormat.class);
-		job1.setNumReduceTasks(1);
 		
 		// Repartition settings
 		job1.setPartitionerClass(CompositePartitioner.class);
 		job1.setSortComparatorClass(CompositeSortComparator.class);
 		job1.setGroupingComparatorClass(CompositeGroupingComparator.class);
 		
-		FileOutputFormat.setOutputPath(job1, new Path("output/LUBMQ2/Stage1"));
+		FileOutputFormat.setOutputPath(job1, new Path("output/LUBM-Q2-Repartition/Stage1"));
 
 		try {
 			job1.waitForCompletion(true);
@@ -112,9 +124,9 @@ public class RepartitionLUBMQ2 {
 		Configuration conf = new Configuration();
         
 	    @SuppressWarnings("deprecation")
-		Job job = new Job(conf, "LUBM-Q2-Repartition-Stage1");
+		Job job = new Job(conf, "LUBM-Q2-Repartition-Stage2");
 	    job.setJarByClass(RepartitionLUBMQ2.class);
-	    job.setOutputKeyClass(CompositeKeyWritable.class);
+	    job.setOutputKeyClass(Text.class);
 	    job.setOutputValueClass(Text.class);
 	    job.setMapperClass(Stage2_RepartitionMapper.class);
 	    job.setReducerClass(Stage2_RepartitionReducer.class);
@@ -122,8 +134,8 @@ public class RepartitionLUBMQ2 {
 	    job.setOutputFormatClass(TextOutputFormat.class);
 	    job.setNumReduceTasks(1);
 	        
-	    FileInputFormat.addInputPath(job, new Path("output/LUBMQ2/Stage1/part-r-00000"));
-	    FileOutputFormat.setOutputPath(job, new Path("output/LUBMQ2/Stage2"));
+	    FileInputFormat.addInputPath(job, new Path("output/LUBM-Q2-Repartition/Stage1"));
+	    FileOutputFormat.setOutputPath(job, new Path("output/LUBM-Q2-Repartition/Stage2"));
 
 	    try {
 			job.waitForCompletion(true);
@@ -136,6 +148,21 @@ public class RepartitionLUBMQ2 {
 	
 	
 	public static class Stage1_RepartitionMapper extends TableMapper<CompositeKeyWritable, KeyValueArrayWritable> {
+		
+        protected void setup(Context context) throws IOException, InterruptedException {
+            
+			univsIn = context.getCounter(LUBMQ2_COUNTERS.UNIVERSITIES_IN);
+			univsJoinedOn = context.getCounter(LUBMQ2_COUNTERS.UNIVERSITIES_JOINED_ON);
+			depsIn = context.getCounter(LUBMQ2_COUNTERS.DEPARTMENTS_IN);
+			depsJoinedOn = context.getCounter(LUBMQ2_COUNTERS.DEPARTMENTS_JOINED_ON);
+			univsDepsJoinTotal = context.getCounter(LUBMQ2_COUNTERS.UNIVERSITIES_DEPARTMENTS_JOIN_TOTAL);
+			gradStudentsIn = context.getCounter(LUBMQ2_COUNTERS.GRAD_STUDENTS_IN);
+			gradStudentsJoinedOn = context.getCounter(LUBMQ2_COUNTERS.GRAD_STUDENTS_JOINED_ON);
+			univDepGradStudentJoinTotal = context.getCounter(LUBMQ2_COUNTERS.UNIV_DEP_GRA_STUDENT_JOIN_TOTAL);
+//			setupTuplesIn = context.getCounter(LUBM_COUNTERS.SETUP_TUPLES_IN);
+//			mapTuplesIn = context.getCounter(LUBM_COUNTERS.MAP_TUPLES_IN);
+//			mapTuplesOut = context.getCounter(LUBM_COUNTERS.MAP_TUPLES_OUT);
+        }
 		
 		public void map(ImmutableBytesWritable row, Result value, Context context) throws InterruptedException, IOException {
 		/* LUBM QUERY 2
@@ -152,8 +179,9 @@ public class RepartitionLUBMQ2 {
 		  [TP-06] ?X ub:undergraduateDegreeFrom ?Y}
 		   ---------------------------------------
 		 */
-			// Determine if this row is a grad student, university, or department
 			
+			mapTuplesIn.increment(1);
+			// Determine if this row is a grad student, university, or department
 			// TP-01, TP-02, TP-03
 			byte[] x_type = value.getValue(SharedServices.CF_AS_BYTES, Bytes.toBytes("ub_GraduateStudent"));
 			byte[] y_type = value.getValue(SharedServices.CF_AS_BYTES, Bytes.toBytes("ub_University"));
@@ -164,6 +192,7 @@ public class RepartitionLUBMQ2 {
 			
 			// If this row is a grad student
 			if (x_type != null) {
+				gradStudentsIn.increment(1);
 				// Emit TP-06
 				byte[] y_reducerKey = null;
 				byte[] z_reducerKey = null;
@@ -190,6 +219,7 @@ public class RepartitionLUBMQ2 {
 			
 			// If this row is a university
 			else if (y_type != null) {
+				univsIn.increment(1);
 				for (KeyValue kv : entireRowAsList) {
 					if (Arrays.equals(kv.getValue(), "rdf_type".getBytes())) {
 						toTransmit.add(kv);
@@ -200,6 +230,7 @@ public class RepartitionLUBMQ2 {
 			
 			// If this row is a department
 			else if (z_type != null) {
+				depsIn.increment(1);
 				for (KeyValue kv : entireRowAsList) {
 					if (Arrays.equals(kv.getValue(), "ub_subOrganizationOf".getBytes())) {
 						toTransmit.add(kv);

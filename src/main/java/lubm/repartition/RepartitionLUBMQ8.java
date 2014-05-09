@@ -1,7 +1,7 @@
 package lubm.repartition;
 
 /**
- * Sort Merge Join LUBM Q8
+ * Repartition Join LUBM Q8
  * @date May 2014
  * @author Albert Haque
  */
@@ -9,6 +9,7 @@ package lubm.repartition;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 
 import org.apache.hadoop.conf.Configuration;
@@ -25,6 +26,7 @@ import org.apache.hadoop.hbase.mapreduce.TableMapper;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Reducer;
+import org.apache.hadoop.mapreduce.Reducer.Context;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 
 import bsbm.repartition.CompositeGroupingComparator;
@@ -93,7 +95,7 @@ public class RepartitionLUBMQ8 {
 		job.setSortComparatorClass(CompositeSortComparator.class);
 		job.setGroupingComparatorClass(CompositeGroupingComparator.class);
 	
-		FileOutputFormat.setOutputPath(job, new Path("output/LUBMQ8"));
+		FileOutputFormat.setOutputPath(job, new Path("output/LUBM-Q8-Repartition"));
 
 		try {
 			System.exit(job.waitForCompletion(true) ? 0 : 1);
@@ -107,50 +109,6 @@ public class RepartitionLUBMQ8 {
 	public static class RepartitionMapper extends TableMapper<CompositeKeyWritable, KeyValueArrayWritable> {
 		
 		public void map(ImmutableBytesWritable row, Result value, Context context) throws InterruptedException, IOException {
-		/* LUBM QUERY 8
-		   ----------------------------------------
-			SELECT ?X, ?Y, ?Z
-			WHERE
-			{ [TP-01] ?X rdf:type ub:Student .
-			  [TP-02] ?Y rdf:type ub:Department .
-			  [TP-03] ?X ub:memberOf ?Y .
-			  [TP-04] ?Y ub:subOrganizationOf <http://www.University0.edu> .
-			  [TP-05] ?X ub:emailAddress ?Z }
-		   ---------------------------------------
-		 */
-	
-			List<KeyValue> toTransmit = new ArrayList<KeyValue>();
-			for (KeyValue kv : value.list()) {
-				if (LUBMSharedServices.isStudent(kv)) {
-					// TP-01
-					if (!Arrays.equals(kv.getValue(), "rdf_type".getBytes())) {
-						return;
-					}
-				} else if (Arrays.equals(kv.getValue(), "ub_memberOf".getBytes())) {
-					// TP-03
-					toTransmit.add(kv);
-				} else if (Arrays.equals(kv.getQualifier(), "ub_emailAddress".getBytes())) {
-					// TP-05
-					toTransmit.add(kv);
-				}
-			}
-			context.write(new CompositeKeyWritable(value.getRow(),1), new KeyValueArrayWritable(SharedServices.listToArray(toTransmit)));
-		}
-	}
-	
-	// Output format:
-	// Key: HBase Row Key (subject)
-	// Value: All projected attributes for the row key (subject)
-	public static class RepartitionReducer extends Reducer<CompositeKeyWritable, KeyValueArrayWritable, Text, Text> {
-
-		HTable table;
-		@Override
-		protected void setup(Context context) throws IOException, InterruptedException {
-			Configuration conf = context.getConfiguration();
-			table = new HTable(conf, conf.get("scan.table"));
-		}
-
-		public void reduce(Text key, Iterable<KeyValueArrayWritable> values, Context context) throws IOException, InterruptedException {
 			/* LUBM QUERY 8
 			   ----------------------------------------
 				SELECT ?X, ?Y, ?Z
@@ -162,40 +120,99 @@ public class RepartitionLUBMQ8 {
 				  [TP-05] ?X ub:emailAddress ?Z }
 			   ---------------------------------------
 			 */
-			// Find the department name
-			KeyValue kv_department = null;
-			String email = null;
-			for (KeyValueArrayWritable array : values) {
-				for (KeyValue kv : (KeyValue[]) array.toArray()) {
-					if (Arrays.equals(kv.getValue(), "ub_memberOf".getBytes())) {
-						kv_department = kv;
-					} else if (Arrays.equals(kv.getQualifier(), "ub_emailAddress".getBytes())) {
-						email = new String(kv.getValue());
-					} 
+				// Determine if this row is a student, faculty, or course
+				List<KeyValue> entireRowAsList = value.list();
+				
+				String rowType = null;
+				// Store some information so we only have to loop through all KVs once
+				KeyValue xMemberOfY = null;
+				KeyValue ySubOrgOfKv = null;
+				KeyValue studentEmail = null;
+				
+				for (KeyValue kv : entireRowAsList) {
+					// Is this a student?
+					if (LUBMSharedServices.isStudent(kv)) {
+						if (Arrays.equals(kv.getValue(), "rdf_type".getBytes())) {
+							rowType = "student";
+						}
+					} // Store student information for later
+					else if (Arrays.equals(kv.getValue(), "ub_memberOf".getBytes())) {
+						xMemberOfY = kv;
+					}
+					// Get Email address of student
+					// NOTE: This is a literal type (i.e. predicate is the qualifier)
+					else if (Arrays.equals(kv.getQualifier(), "ub_emailAddress".getBytes())) {
+						studentEmail = kv;
+					}
+					// Check if a department
+					else if (Arrays.equals(kv.getQualifier(), "ub_Department".getBytes())) {
+						if (Arrays.equals(kv.getValue(), "rdf_type".getBytes())) {
+							rowType = "department";
+						}
+					}
+					// Store subOrganization info for later
+					else if (Arrays.equals(kv.getValue(), "ub_subOrganizationOf".getBytes())) {
+						if (!Arrays.equals(kv.getQualifier(), University.getBytes())) {
+							return;
+						}
+						ySubOrgOfKv = kv;
+					}
+				}
+				if (rowType == null || (xMemberOfY == null && ySubOrgOfKv == null)) {
+					return;
+				}
+				
+				// Send everything to a DEPARTMENT reducer
+				if (rowType.equals("student") && studentEmail != null) {
+					KeyValue[] smallArray = new KeyValue[2];
+					smallArray[0] = xMemberOfY;
+					smallArray[1] = studentEmail;
+					context.write(new CompositeKeyWritable(xMemberOfY.getQualifier(),1), new KeyValueArrayWritable(smallArray));
+				} else if (rowType.equals("department") && ySubOrgOfKv != null) {
+					KeyValue[] smallArray = new KeyValue[1];
+					smallArray[0] = ySubOrgOfKv;
+					context.write(new CompositeKeyWritable(ySubOrgOfKv.getRow(),2), new KeyValueArrayWritable(smallArray));
 				}
 			}
-			if (kv_department == null) {
-				return;
-			}
+	}
+	
 
-			Get g = new Get(kv_department.getQualifier());
-			g.addColumn(SharedServices.CF_AS_BYTES, "ub_Department".getBytes());
-			g.addColumn(SharedServices.CF_AS_BYTES, University.getBytes());
-			Result departmentResult = table.get(g);
-			// TP-04
-			byte[] subOrg = departmentResult.getValue(SharedServices.CF_AS_BYTES, University.getBytes());
-			if (subOrg == null) { return; }
-			if (!Arrays.equals(subOrg, "ub_subOrganizationOf".getBytes())) { return; }
-			// TP-02
-			byte[] predType = departmentResult.getValue(SharedServices.CF_AS_BYTES,"ub_Department".getBytes());
-			if (predType == null) {	return;	}
-			if (!Arrays.equals(predType, "rdf_type".getBytes())) { return; }
-			
-			// If we've made it this far, then output the result
-			StringBuilder builder = new StringBuilder();
-			builder.append(new String(kv_department.getRow()) + "\t");
-			builder.append(new String(kv_department.getQualifier()) + "\t" + email);
-			context.write(new Text(builder.toString()), new Text());
-		}
+	public static class RepartitionReducer extends Reducer<CompositeKeyWritable, KeyValueArrayWritable, Text, Text> {
+
+		public void reduce(CompositeKeyWritable key, Iterable<KeyValueArrayWritable> values, Context context) throws IOException, InterruptedException {
+			/* LUBM QUERY 8
+			   ----------------------------------------
+				SELECT ?X, ?Y, ?Z
+				WHERE
+				{ [TP-01] ?X rdf:type ub:Student .
+				  [TP-02] ?Y rdf:type ub:Department .
+				  [TP-03] ?X ub:memberOf ?Y .
+				  [TP-04] ?Y ub:subOrganizationOf <http://www.University0.edu> .
+				  [TP-05] ?X ub:emailAddress ?Z }
+			   ---------------------------------------
+			 */
+				
+				boolean validSuborgOf = false;
+				HashMap<String,String> studentEmails = new HashMap<String, String>();
+				
+				for (KeyValueArrayWritable array : values) {
+					for (KeyValue kv : (KeyValue[]) array.toArray()) {
+						// Populate the emails
+						if (Arrays.equals(kv.getQualifier(), "ub_emailAddress".getBytes())) {
+							studentEmails.put(new String(kv.getRow()), new String(kv.getValue()));
+						}
+						// Verify this department is a suborg of the University
+						else if (Arrays.equals(kv.getValue(), "ub_subOrganizationOf".getBytes())) {
+							validSuborgOf = true;
+						}
+					}
+				}
+				
+				if (validSuborgOf == true && studentEmails.size() > 0) {
+					for (String student : studentEmails.keySet()) {
+						context.write(new Text(student + "\t" + key.toString() + "\t" + studentEmails.get(student)), new Text());
+					}
+				}
+			}
 	}
 }
