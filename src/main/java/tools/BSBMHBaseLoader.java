@@ -141,7 +141,7 @@ public class BSBMHBaseLoader extends Mapper<LongWritable, Text, ImmutableBytesWr
     hConf.set("hbase.zookeeper.quorum", args[1]);
     hConf.set("hbase.zookeeper.property.clientPort", "2181");
 
-    try {
+//    try {
 	HBaseAdmin admin = new HBaseAdmin(hConf);
       if (!admin.tableExists(hbaseTable)) {
         System.out.println("Could not find HBase table " + hbaseTable + ", creating now");
@@ -149,7 +149,7 @@ public class BSBMHBaseLoader extends Mapper<LongWritable, Text, ImmutableBytesWr
         desc.setName(hbaseTable.getBytes());
         HColumnDescriptor colDesc = new HColumnDescriptor(BSBMDataSetProcessor.COLUMN_FAMILY);
         colDesc.setBloomFilterType(BloomType.ROWCOL);
-        colDesc.setCacheBloomsOnWrite(true);
+        //colDesc.setCacheBloomsOnWrite(true);
         colDesc.setMaxVersions(200);
         desc.addFamily(colDesc);
         admin.createTable(desc, splitKeys);
@@ -157,16 +157,15 @@ public class BSBMHBaseLoader extends Mapper<LongWritable, Text, ImmutableBytesWr
       hTable = new HTable(hConf, hbaseTable);
       System.out.println("Table created successfully");
       admin.close();
-    } catch (Exception e) {
-      throw new RuntimeException("USER ERROR: Error while accessing hbase....");
-    }
+//    } catch (Exception e) {
+//      throw new RuntimeException("Error while accessing hbase....");
+//    }
 
 
 	Job job = new Job(conf);
     job.setJobName("BSBMToHBaseLoader");
     job.setJarByClass(BSBMHBaseLoader.class);
     job.setMapperClass(BSBMHBaseLoader.class);
-    job.setNumReduceTasks(4);
 
     TextInputFormat.setInputPaths(job, new Path(args[2]));
     job.setInputFormatClass(TextInputFormat.class);

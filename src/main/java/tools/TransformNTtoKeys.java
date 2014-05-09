@@ -16,8 +16,6 @@ import org.apache.hadoop.mapreduce.lib.output.SequenceFileOutputFormat;
 import org.apache.hadoop.util.Tool;
 import org.apache.hadoop.util.ToolRunner;
 
-import tools.BSBMDataSetProcessor;
-
 import java.io.IOException;
 import java.util.List;
 
@@ -28,8 +26,8 @@ public class TransformNTtoKeys extends Configured implements Tool {
 		@Override
 		protected void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
 			  
-			List<BSBMDataSetProcessor.Triple> tripleList = BSBMDataSetProcessor.process(value.toString());
-			for (BSBMDataSetProcessor.Triple t : tripleList) {
+			List<tools.BSBMDataSetProcessor.Triple> tripleList = BSBMDataSetProcessor.process(value.toString());
+			for (tools.BSBMDataSetProcessor.Triple t : tripleList) {
 				context.write(new Text(t.subject), one);
 			}
 			/*

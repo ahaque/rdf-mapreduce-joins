@@ -13,10 +13,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 
-import bsbm.sortmerge.ReduceSideJoinBSBMQ12;
-import bsbm.sortmerge.ReduceSideJoinBSBMQ12.ReduceSideJoin_MapperStage1;
-import bsbm.sortmerge.ReduceSideJoinBSBMQ12.ReduceSideJoin_ReducerStage1;
-
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hbase.HBaseConfiguration;
@@ -127,6 +123,8 @@ public class SortMergeLUBMQ2 {
 		return job;
 	 }
 	
+	
+	
 	public static class Stage1_SortMergeMapper extends TableMapper<Text, KeyValueArrayWritable> {
 		
 		public void map(ImmutableBytesWritable row, Result value, Context context) throws InterruptedException, IOException {
@@ -153,7 +151,7 @@ public class SortMergeLUBMQ2 {
 
 			List<KeyValue> entireRowAsList = value.list();
 			List<KeyValue> toTransmit = new ArrayList<KeyValue>();
-
+			
 			// If this row is a grad student
 			if (x_type != null) {
 				// Emit TP-06
@@ -202,17 +200,6 @@ public class SortMergeLUBMQ2 {
 				context.write(new Text(value.getRow()), new KeyValueArrayWritable(SharedServices.listToArray(toTransmit)));
 			}
 			
-			// If this row is a department
-			else if (z_type != null) {
-				for (KeyValue kv : entireRowAsList) {
-					if (Arrays.equals(kv.getValue(), "ub_subOrganizationOf".getBytes())) {
-						toTransmit.add(kv);
-					} else if (Arrays.equals(kv.getValue(), "rdf_type".getBytes())) {
-						toTransmit.add(kv);
-					} 
-				}
-				context.write(new Text(value.getRow()), new KeyValueArrayWritable(SharedServices.listToArray(toTransmit)));
-			}
 			// If this row is something else
 			else {
 				return;
@@ -224,13 +211,6 @@ public class SortMergeLUBMQ2 {
 	// Key: HBase Row Key (subject)
 	// Value: All projected attributes for the row key (subject)
 	public static class Stage1_SortMergeReducer extends Reducer<Text, KeyValueArrayWritable, Text, Text> {
-		HTable table;
-		@Override
-		protected void setup(Context context) throws IOException,
-				InterruptedException {
-			Configuration conf = context.getConfiguration();
-			table = new HTable(conf, conf.get("scan.table"));
-		}
 
 		public void reduce(Text key, Iterable<KeyValueArrayWritable> values, Context context) throws IOException, InterruptedException {
 			/* LUBM QUERY 2
@@ -245,6 +225,7 @@ public class SortMergeLUBMQ2 {
 			  [TP-06] ?X ub:undergraduateDegreeFrom ?Y}
 			   ---------------------------------------
 			 */
+
 			// Find out if this is X JOIN Y or X JOIN Z
 			for (KeyValueArrayWritable array : values) {
 				for (KeyValue kv : (KeyValue[]) array.toArray()) {
@@ -329,11 +310,8 @@ public class SortMergeLUBMQ2 {
 						gradStudentDepartment.put(line[2], students);
 					}
 				}
-				StringBuilder builder = new StringBuilder();
-				builder.append("\n" + gradStudent + "\t" + university);
-				context.write(new Text(builder.toString()), new Text(""));
 			}
-
+			
 			// Only write the departments that belong in this university
 			for (String department : departmentVerified) {
 				for (String student : gradStudentDepartment.get(department)) {
@@ -345,6 +323,7 @@ public class SortMergeLUBMQ2 {
 					context.write(new Text(result), new Text());
 				}
 			}
+			
 		}
 	}
 }
