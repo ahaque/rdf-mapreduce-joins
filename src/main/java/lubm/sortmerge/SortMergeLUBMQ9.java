@@ -80,7 +80,7 @@ public class SortMergeLUBMQ9 {
 		job1.setReducerClass(Stage1_SortMergeReducer.class);  
 		job1.setOutputFormatClass(TextOutputFormat.class);
 		job1.setNumReduceTasks(1);
-		FileOutputFormat.setOutputPath(job1, new Path("output/LUBMQ9"));
+		FileOutputFormat.setOutputPath(job1, new Path("output/LUBM-Q9-SortMerge"));
 
 		try {
 			job1.waitForCompletion(true);
@@ -202,9 +202,6 @@ public class SortMergeLUBMQ9 {
 		}
 	}
 	
-	// Output format:
-	// Key: HBase Row Key (subject)
-	// Value: All projected attributes for the row key (subject)
 	public static class Stage1_SortMergeReducer extends Reducer<Text, KeyValueArrayWritable, Text, Text> {
 
 		public void reduce(Text key, Iterable<KeyValueArrayWritable> values, Context context) throws IOException, InterruptedException {

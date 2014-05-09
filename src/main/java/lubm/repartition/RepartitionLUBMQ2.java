@@ -91,14 +91,13 @@ public class RepartitionLUBMQ2 {
 		// Reducer settings
 		job1.setReducerClass(Stage1_RepartitionReducer.class);  
 		job1.setOutputFormatClass(TextOutputFormat.class);
-		job1.setNumReduceTasks(1);
 		
 		// Repartition settings
 		job1.setPartitionerClass(CompositePartitioner.class);
 		job1.setSortComparatorClass(CompositeSortComparator.class);
 		job1.setGroupingComparatorClass(CompositeGroupingComparator.class);
 		
-		FileOutputFormat.setOutputPath(job1, new Path("output/LUBMQ2/Stage1"));
+		FileOutputFormat.setOutputPath(job1, new Path("output/LUBM-Q2-Repartition/Stage1"));
 
 		try {
 			job1.waitForCompletion(true);
@@ -112,9 +111,9 @@ public class RepartitionLUBMQ2 {
 		Configuration conf = new Configuration();
         
 	    @SuppressWarnings("deprecation")
-		Job job = new Job(conf, "LUBM-Q2-Repartition-Stage1");
+		Job job = new Job(conf, "LUBM-Q2-Repartition-Stage2");
 	    job.setJarByClass(RepartitionLUBMQ2.class);
-	    job.setOutputKeyClass(CompositeKeyWritable.class);
+	    job.setOutputKeyClass(Text.class);
 	    job.setOutputValueClass(Text.class);
 	    job.setMapperClass(Stage2_RepartitionMapper.class);
 	    job.setReducerClass(Stage2_RepartitionReducer.class);
@@ -122,8 +121,8 @@ public class RepartitionLUBMQ2 {
 	    job.setOutputFormatClass(TextOutputFormat.class);
 	    job.setNumReduceTasks(1);
 	        
-	    FileInputFormat.addInputPath(job, new Path("output/LUBMQ2/Stage1/part-r-00000"));
-	    FileOutputFormat.setOutputPath(job, new Path("output/LUBMQ2/Stage2"));
+	    FileInputFormat.addInputPath(job, new Path("output/LUBM-Q2-Repartition/Stage1"));
+	    FileOutputFormat.setOutputPath(job, new Path("output/LUBM-Q2-Repartition/Stage2"));
 
 	    try {
 			job.waitForCompletion(true);
