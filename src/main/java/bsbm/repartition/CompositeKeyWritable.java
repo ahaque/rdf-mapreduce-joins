@@ -32,7 +32,7 @@ public class CompositeKeyWritable implements Writable, WritableComparable<Compos
  
 	@Override
 	public String toString() {
-		return tag + "|" + value;
+		return value;
 	}
  
 	public void readFields(DataInput dataInput) throws IOException {

@@ -73,7 +73,7 @@ public class LUBMDataSetProcessor {
     //else it maybe a comment or a value, we treat comments as string values
     matcher.find();
     String next = matcher.group(1);
-
+ 
     ImmutableList.Builder<Triple> builder = ImmutableList.builder();
 
     if (next.startsWith("@")) {
