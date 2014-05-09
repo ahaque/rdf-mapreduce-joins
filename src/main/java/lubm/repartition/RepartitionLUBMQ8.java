@@ -1,7 +1,7 @@
-package lubm.sortmerge;
+package lubm.repartition;
 
 /**
- * Sort Merge Join LUBM Q7
+ * Sort Merge Join LUBM Q8
  * @date May 2014
  * @author Albert Haque
  */
@@ -9,7 +9,6 @@ package lubm.sortmerge;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.LinkedList;
 import java.util.List;
 
 import org.apache.hadoop.conf.Configuration;
@@ -23,20 +22,23 @@ import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.mapreduce.TableMapReduceUtil;
 import org.apache.hadoop.hbase.mapreduce.TableMapper;
-import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 
+import bsbm.repartition.CompositeGroupingComparator;
+import bsbm.repartition.CompositeKeyWritable;
+import bsbm.repartition.CompositePartitioner;
+import bsbm.repartition.CompositeSortComparator;
 import bsbm.sortmerge.KeyValueArrayWritable;
 import bsbm.sortmerge.SharedServices;
+import lubm.sortmerge.LUBMSharedServices;
 
-
-public class SortMergeLUBMQ7 {
+public class RepartitionLUBMQ8 {
 	
 	// Begin Query Information
-	
+	public static String University = "University0.edu";
 	// End Query Information
 		
 	public static void main(String[] args) throws ClassNotFoundException, IOException, InterruptedException {
@@ -65,9 +67,10 @@ public class SortMergeLUBMQ7 {
 	    Scan scan = new Scan();
 	    //scan.setFilter(rowColBloomFilter());
 		
+		@SuppressWarnings("deprecation")
 		Job job = new Job(hConf);
-		job.setJobName("LUBM-Q7-SortMerge");
-		job.setJarByClass(SortMergeLUBMQ7.class);
+		job.setJobName("LUBM-Q8-Repartition");
+		job.setJarByClass(RepartitionLUBMQ8.class);
 		// Change caching to speed up the scan
 		scan.setCaching(500);        
 		scan.setCacheBlocks(false);
@@ -76,17 +79,21 @@ public class SortMergeLUBMQ7 {
 		TableMapReduceUtil.initTableMapperJob(
 				args[0],        // input HBase table name
 				scan,             // Scan instance to control CF and attribute selection
-				SortMergeMapper.class,   // mapper
-				Text.class,         // mapper output key
+				RepartitionMapper.class,   // mapper
+				CompositeKeyWritable.class,         // mapper output key
 				KeyValueArrayWritable.class,  // mapper output value
 				job);
 
 		// Reducer settings
-		job.setReducerClass(SortMergeReducer.class);    // reducer class
-		//job.setReducerClass(SharedServices.ReduceSideJoin_Reducer.class);
+		job.setReducerClass(RepartitionReducer.class);    // reducer class
 		//job.setNumReduceTasks(1);    // at least one, adjust as required
+		
+		// Repartition settings
+		job.setPartitionerClass(CompositePartitioner.class);
+		job.setSortComparatorClass(CompositeSortComparator.class);
+		job.setGroupingComparatorClass(CompositeGroupingComparator.class);
 	
-		FileOutputFormat.setOutputPath(job, new Path("output/LUBMQ7"));
+		FileOutputFormat.setOutputPath(job, new Path("output/LUBMQ8"));
 
 		try {
 			System.exit(job.waitForCompletion(true) ? 0 : 1);
@@ -97,106 +104,98 @@ public class SortMergeLUBMQ7 {
 	}
 	
 	
-	public static class SortMergeMapper extends TableMapper<Text, KeyValueArrayWritable> {
+	public static class RepartitionMapper extends TableMapper<CompositeKeyWritable, KeyValueArrayWritable> {
 		
 		public void map(ImmutableBytesWritable row, Result value, Context context) throws InterruptedException, IOException {
-		/* LUBM QUERY 7
+		/* LUBM QUERY 8
 		   ----------------------------------------
-			SELECT ?X, ?Y
-			WHERE 
-			{
-			[TP-01] ?X rdf:type ub:Student .
-			[TP-02] ?Y rdf:type ub:Course .
-			[TP-03] ?X ub:takesCourse ?Y .
-			[TP-04] <http://www.Department0.University0.edu/AssociateProfessor0> ub:teacherOf ?Y
-			}
+			SELECT ?X, ?Y, ?Z
+			WHERE
+			{ [TP-01] ?X rdf:type ub:Student .
+			  [TP-02] ?Y rdf:type ub:Department .
+			  [TP-03] ?X ub:memberOf ?Y .
+			  [TP-04] ?Y ub:subOrganizationOf <http://www.University0.edu> .
+			  [TP-05] ?X ub:emailAddress ?Z }
 		   ---------------------------------------
 		 */
 	
 			List<KeyValue> toTransmit = new ArrayList<KeyValue>();
 			for (KeyValue kv : value.list()) {
-				// TP-01
 				if (LUBMSharedServices.isStudent(kv)) {
+					// TP-01
 					if (!Arrays.equals(kv.getValue(), "rdf_type".getBytes())) {
 						return;
 					}
-				} else if (Arrays.equals(kv.getValue(), "ub_takesCourse".getBytes())) {
+				} else if (Arrays.equals(kv.getValue(), "ub_memberOf".getBytes())) {
 					// TP-03
+					toTransmit.add(kv);
+				} else if (Arrays.equals(kv.getQualifier(), "ub_emailAddress".getBytes())) {
+					// TP-05
 					toTransmit.add(kv);
 				}
 			}
-			
-			// Use the course as the key because the reducer will operate on the course, not student
-			for (KeyValue kv : toTransmit) {
-				List<KeyValue> singleKv = new ArrayList<KeyValue>();
-				singleKv.add(kv);
-				context.write(new Text(kv.getQualifier()), new KeyValueArrayWritable(SharedServices.listToArray(singleKv)));
-			}
+			context.write(new CompositeKeyWritable(value.getRow(),1), new KeyValueArrayWritable(SharedServices.listToArray(toTransmit)));
 		}
 	}
 	
 	// Output format:
 	// Key: HBase Row Key (subject)
 	// Value: All projected attributes for the row key (subject)
-	public static class SortMergeReducer extends Reducer<Text, KeyValueArrayWritable, Text, Text> {
+	public static class RepartitionReducer extends Reducer<CompositeKeyWritable, KeyValueArrayWritable, Text, Text> {
 
 		HTable table;
 		@Override
-		protected void setup(Context context) throws IOException,
-				InterruptedException {
+		protected void setup(Context context) throws IOException, InterruptedException {
 			Configuration conf = context.getConfiguration();
 			table = new HTable(conf, conf.get("scan.table"));
 		}
 
-		public void reduce(Text key, Iterable<KeyValueArrayWritable> values,
-				Context context) throws IOException, InterruptedException {
-			/* LUBM QUERY 7
+		public void reduce(Text key, Iterable<KeyValueArrayWritable> values, Context context) throws IOException, InterruptedException {
+			/* LUBM QUERY 8
 			   ----------------------------------------
-			SELECT ?X, ?Y
-			WHERE 
-			{
-			[TP-01] ?X rdf:type ub:Student .
-			[TP-02] ?Y rdf:type ub:Course .
-			[TP-03] ?X ub:takesCourse ?Y .
-			[TP-04] <http://www.Department0.University0.edu/AssociateProfessor0> ub:teacherOf ?Y
-			}
+				SELECT ?X, ?Y, ?Z
+				WHERE
+				{ [TP-01] ?X rdf:type ub:Student .
+				  [TP-02] ?Y rdf:type ub:Department .
+				  [TP-03] ?X ub:memberOf ?Y .
+				  [TP-04] ?Y ub:subOrganizationOf <http://www.University0.edu> .
+				  [TP-05] ?X ub:emailAddress ?Z }
 			   ---------------------------------------
 			 */
-			// Find the course name
-			// Get the course information
+			// Find the department name
+			KeyValue kv_department = null;
+			String email = null;
+			for (KeyValueArrayWritable array : values) {
+				for (KeyValue kv : (KeyValue[]) array.toArray()) {
+					if (Arrays.equals(kv.getValue(), "ub_memberOf".getBytes())) {
+						kv_department = kv;
+					} else if (Arrays.equals(kv.getQualifier(), "ub_emailAddress".getBytes())) {
+						email = new String(kv.getValue());
+					} 
+				}
+			}
+			if (kv_department == null) {
+				return;
+			}
+
+			Get g = new Get(kv_department.getQualifier());
+			g.addColumn(SharedServices.CF_AS_BYTES, "ub_Department".getBytes());
+			g.addColumn(SharedServices.CF_AS_BYTES, University.getBytes());
+			Result departmentResult = table.get(g);
+			// TP-04
+			byte[] subOrg = departmentResult.getValue(SharedServices.CF_AS_BYTES, University.getBytes());
+			if (subOrg == null) { return; }
+			if (!Arrays.equals(subOrg, "ub_subOrganizationOf".getBytes())) { return; }
 			// TP-02
-			Get g = new Get(key.toString().getBytes());
-			g.addColumn(SharedServices.CF_AS_BYTES, "ub_Course".getBytes());
-			Result courseResult = table.get(g);
-			byte[] courseType = courseResult.getValue(SharedServices.CF_AS_BYTES,"ub_Course".getBytes());
-			if (courseType == null) {
-				return;
-			}
-			if (!Arrays.equals(courseType, "rdf_type".getBytes())) {
-				return;
-			}
-			
-			// Find and get professor information
-			Get g1 = new Get("Department0.University0.edu/AssociateProfessor0".getBytes());
-			g1.addColumn(SharedServices.CF_AS_BYTES, key.toString().getBytes());
-			Result professorResult = table.get(g1);
-			byte[] teacherOf = professorResult.getValue(SharedServices.CF_AS_BYTES, key.toString().getBytes());
-			if (teacherOf == null) {
-				return;
-			}
-			if (!Arrays.equals(teacherOf, "ub_teacherOf".getBytes())) {
-				return;
-			}
+			byte[] predType = departmentResult.getValue(SharedServices.CF_AS_BYTES,"ub_Department".getBytes());
+			if (predType == null) {	return;	}
+			if (!Arrays.equals(predType, "rdf_type".getBytes())) { return; }
 			
 			// If we've made it this far, then output the result
 			StringBuilder builder = new StringBuilder();
-			builder.append("\n");
-			for (KeyValueArrayWritable array : values) {
-				for (KeyValue kv : (KeyValue[]) array.toArray()) {
-					builder.append(new String(kv.getRow()) + "\t" + new String(kv.getQualifier()) + "\n");
-				}
-			}
-			context.write(key, new Text(builder.toString()));
+			builder.append(new String(kv_department.getRow()) + "\t");
+			builder.append(new String(kv_department.getQualifier()) + "\t" + email);
+			context.write(new Text(builder.toString()), new Text());
 		}
 	}
 }

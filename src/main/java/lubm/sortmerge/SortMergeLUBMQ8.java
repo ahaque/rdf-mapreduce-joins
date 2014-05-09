@@ -29,7 +29,7 @@ import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 
 import bsbm.sortmerge.KeyValueArrayWritable;
 import bsbm.sortmerge.SharedServices;
-
+import lubm.sortmerge.LUBMSharedServices;
 
 public class SortMergeLUBMQ8 {
 	
@@ -112,7 +112,7 @@ public class SortMergeLUBMQ8 {
 	
 			List<KeyValue> toTransmit = new ArrayList<KeyValue>();
 			for (KeyValue kv : value.list()) {
-				if (Arrays.equals(kv.getQualifier(), "ub_Student".getBytes())) {
+				if (LUBMSharedServices.isStudent(kv)) {
 					// TP-01
 					if (!Arrays.equals(kv.getValue(), "rdf_type".getBytes())) {
 						return;
@@ -185,11 +185,9 @@ public class SortMergeLUBMQ8 {
 			
 			// If we've made it this far, then output the result
 			StringBuilder builder = new StringBuilder();
-			builder.append("\n");
 			builder.append(new String(kv_department.getRow()) + "\t");
-			builder.append(new String(kv_department.getQualifier()) + "\t");
-			builder.append(email + "\n");
-			context.write(key, new Text(builder.toString()));
+			builder.append(new String(kv_department.getQualifier()) + "\t" + email);
+			context.write(new Text(builder.toString()), new Text());
 		}
 	}
 }

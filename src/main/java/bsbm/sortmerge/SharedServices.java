@@ -99,7 +99,7 @@ public class SharedServices {
 					} catch (ClassNotFoundException e) {
 						e.printStackTrace();
 					}
-		        	builder.append("\t" + triple[1] + "\t" + triple[2] +"\n");
+		        	builder.append("\t" + triple[0] + "\t" + triple[1] + "\t" + triple[2] +"\n");
 		        }
 		      }
 			context.write(key, new Text(builder.toString()));
@@ -122,7 +122,7 @@ public class SharedServices {
 					} catch (ClassNotFoundException e) {
 						e.printStackTrace();
 					}
-		        	builder.append("\t" + triple[1] + "\t" + triple[2] +"\n");
+		        	builder.append("\t" + triple[0] + "\t" + triple[1] + "\t" + triple[2] +"\n");
 		        }
 		      }
 			context.write(new Text(key.getValue()), new Text(builder.toString()));

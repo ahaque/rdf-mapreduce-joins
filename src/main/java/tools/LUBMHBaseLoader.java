@@ -148,7 +148,7 @@ public class LUBMHBaseLoader extends Mapper<LongWritable, Text, ImmutableBytesWr
         HColumnDescriptor colDesc = new HColumnDescriptor(LUBMDataSetProcessor.COLUMN_FAMILY);
         colDesc.setBloomFilterType(BloomType.ROWCOL);
         colDesc.setCacheBloomsOnWrite(true);
-        colDesc.setMaxVersions(200);
+        colDesc.setMaxVersions(3);
         desc.addFamily(colDesc);
         admin.createTable(desc, splitKeys);
       }
@@ -160,6 +160,7 @@ public class LUBMHBaseLoader extends Mapper<LongWritable, Text, ImmutableBytesWr
     }
 
 
+	@SuppressWarnings("deprecation")
 	Job job = new Job(conf);
     job.setJobName("LUBMToHBaseLoader");
     job.setJarByClass(LUBMHBaseLoader.class);
