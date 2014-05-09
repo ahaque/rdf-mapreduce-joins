@@ -41,31 +41,31 @@ public class LUBMHBaseLoader extends Mapper<LongWritable, Text, ImmutableBytesWr
 
   @Override
   protected void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
+		try {
+			for (LUBMDataSetProcessor.Triple triple : LUBMDataSetProcessor.process(value.toString())) {
+				byte[] subject = toBytes(triple.subject);
+				Put put = new Put(subject);
+				// if the triple is not a valu triple we store the object as the
+				// col name and the predicate as the col
+				// value so that we can do bloom filtered s-o joins
+				if (!triple.isValueTriple()) {
+					put.add(toBytes(LUBMDataSetProcessor.COLUMN_FAMILY),
+							toBytes(triple.object), timestamp++,
+							toBytes(triple.predicate));
+					// if it is a value (like an int or a data) we wouldn't join
+					// on it anyway so store as usual
+				} else {
+					put.add(toBytes(LUBMDataSetProcessor.COLUMN_FAMILY),
+							toBytes(triple.predicate), timestamp++,
+							triple.value);
+				}
 
-    for (LUBMDataSetProcessor.Triple triple : LUBMDataSetProcessor.process(value.toString())) {
-
-      byte[] subject = toBytes(triple.subject);
-
-      Put put = new Put(subject);
-
-      // if the triple is not a valu triple we store the object as the col name and the predicate as the col
-      // value so that we can do bloom filtered s-o joins
-      if (!triple.isValueTriple()) {
-        put.add(toBytes(LUBMDataSetProcessor.COLUMN_FAMILY),
-          toBytes(triple.object),
-          timestamp++,
-          toBytes(triple.predicate));
-        // if it is a value (like an int or a data) we wouldn't join on it anyway so store as usual
-      } else {
-        put.add(toBytes(LUBMDataSetProcessor.COLUMN_FAMILY),
-          toBytes(triple.predicate),
-          timestamp++,
-          triple.value);
-      }
-
-      ImmutableBytesWritable ibKey = new ImmutableBytesWritable(subject);
-      context.write(ibKey, put);
-    }
+				ImmutableBytesWritable ibKey = new ImmutableBytesWritable(subject);
+				context.write(ibKey, put);
+			}
+		} catch (IllegalStateException e) {
+			return;
+		}
   }
 
   public static void main(String[] args) throws Exception {

@@ -1,7 +1,7 @@
-package lubm.sortmerge;
+package lubm.repartition;
 
 /**
- * Sort Merge Join LUBM Q9
+ * Repartition Join LUBM Q9
  * @date May 2014
  * @author Albert Haque
  */
@@ -12,6 +12,8 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+
+import lubm.sortmerge.LUBMSharedServices;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
@@ -28,10 +30,11 @@ import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 
+import bsbm.repartition.CompositeKeyWritable;
 import bsbm.sortmerge.KeyValueArrayWritable;
 
 
-public class SortMergeLUBMQ9 {
+public class RepartitionLUBMQ9 {
 	
 	// Begin Query Information
 	
@@ -39,6 +42,7 @@ public class SortMergeLUBMQ9 {
 		
 	public static void main(String[] args) throws ClassNotFoundException, IOException, InterruptedException {
 
+		// Zookeeper quorum is usually the same as the HBase master node
 		String USAGE_MSG = "Arguments: <table name> <zookeeper quorum>";
 
 		if (args == null || args.length != 2) {
@@ -60,8 +64,8 @@ public class SortMergeLUBMQ9 {
 	    Scan scan1 = new Scan();		
 		@SuppressWarnings("deprecation")
 		Job job1 = new Job(hConf);
-		job1.setJobName("LUBM-Q9-SortMerge");
-		job1.setJarByClass(SortMergeLUBMQ9.class);
+		job1.setJobName("LUBM-Q9-Repartition");
+		job1.setJarByClass(RepartitionLUBMQ9.class);
 		// Change caching and number of time stamps to speed up the scan
 		scan1.setCaching(500);        
 		scan1.setMaxVersions(3);
@@ -71,13 +75,13 @@ public class SortMergeLUBMQ9 {
 		TableMapReduceUtil.initTableMapperJob(
 				args[0],		// Input HBase table name
 				scan1,			// Scan instance to control CF and attribute selection
-				Stage1_SortMergeMapper.class,	// MAP: Class
-				Text.class,		// MAP: Output Key
+				Stage1_RepartitionMapper.class,	// MAP: Class
+				CompositeKeyWritable.class,		// MAP: Output Key
 				KeyValueArrayWritable.class,  	// MAP: Output Value
 				job1);
 
 		// Reducer settings
-		job1.setReducerClass(Stage1_SortMergeReducer.class);  
+		job1.setReducerClass(Stage1_RepartitionReducer.class);  
 		job1.setOutputFormatClass(TextOutputFormat.class);
 		job1.setNumReduceTasks(1);
 		FileOutputFormat.setOutputPath(job1, new Path("output/LUBMQ9"));
@@ -91,7 +95,7 @@ public class SortMergeLUBMQ9 {
 	}
 	
 	
-	public static class Stage1_SortMergeMapper extends TableMapper<Text, KeyValueArrayWritable> {
+	public static class Stage1_RepartitionMapper extends TableMapper<CompositeKeyWritable, KeyValueArrayWritable> {
 		
 		private static String[] typesToCheck = {
 				"ub_GraduateStudent",
@@ -164,7 +168,7 @@ public class SortMergeLUBMQ9 {
 					KeyValue[] smallArray = new KeyValue[2];
 					smallArray[0] = kv;
 					smallArray[1] = advisorKv;
-					context.write(new Text(kv.getQualifier()), new KeyValueArrayWritable(smallArray));
+					context.write(new CompositeKeyWritable(kv.getQualifier(),1), new KeyValueArrayWritable(smallArray));
 				}
 			}
 			
@@ -181,7 +185,7 @@ public class SortMergeLUBMQ9 {
 				for (KeyValue kv : teachesCourses) {
 					KeyValue[] singleCourse = new KeyValue[1];
 					singleCourse[0] = kv;
-					context.write(new Text(kv.getQualifier()), new KeyValueArrayWritable(singleCourse));
+					context.write(new CompositeKeyWritable(kv.getQualifier(),2), new KeyValueArrayWritable(singleCourse));
 				}
 			}
 			
@@ -193,7 +197,7 @@ public class SortMergeLUBMQ9 {
 //						toTransmit.add(kv);
 //					}
 //				}
-//				context.write(new Text(value.getRow()), new KeyValueArrayWritable(SharedServices.listToArray(toTransmit)));
+//				context.write(new CompositeKeyWritable(value.getRow(),3), new KeyValueArrayWritable(SharedServices.listToArray(toTransmit)));
 //			}
 			// If this row is something else
 			else {
@@ -205,9 +209,9 @@ public class SortMergeLUBMQ9 {
 	// Output format:
 	// Key: HBase Row Key (subject)
 	// Value: All projected attributes for the row key (subject)
-	public static class Stage1_SortMergeReducer extends Reducer<Text, KeyValueArrayWritable, Text, Text> {
+	public static class Stage1_RepartitionReducer extends Reducer<CompositeKeyWritable, KeyValueArrayWritable, Text, Text> {
 
-		public void reduce(Text key, Iterable<KeyValueArrayWritable> values, Context context) throws IOException, InterruptedException {
+		public void reduce(CompositeKeyWritable key, Iterable<KeyValueArrayWritable> values, Context context) throws IOException, InterruptedException {
 			/* LUBM QUERY 9
 			   ----------------------------------------
 			SELECT ?X, ?Y, ?Z
@@ -239,7 +243,7 @@ public class SortMergeLUBMQ9 {
 			
 			for (String s : studentHasAdvisor.keySet()) {
 				if (facultyTeachingThisCourse.contains(studentHasAdvisor.get(s))) {
-					String triple = s + "\t" + studentHasAdvisor.get(s) + "\t" + key;
+					String triple = s + "\t" + studentHasAdvisor.get(s) + "\t" + key.getValue();
 					context.write(new Text(triple), new Text());
 				}
 			}			
