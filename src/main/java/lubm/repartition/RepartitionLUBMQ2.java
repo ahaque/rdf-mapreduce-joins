@@ -132,8 +132,8 @@ public class RepartitionLUBMQ2 {
 	    job.setReducerClass(Stage2_RepartitionReducer.class);
 	    job.setInputFormatClass(TextInputFormat.class);
 	    job.setOutputFormatClass(TextOutputFormat.class);
-	    job.setNumReduceTasks(1);
-	        
+
+	    
 	    FileInputFormat.addInputPath(job, new Path("output/LUBM-Q2-Repartition/Stage1"));
 	    FileOutputFormat.setOutputPath(job, new Path("output/LUBM-Q2-Repartition/Stage2"));
 

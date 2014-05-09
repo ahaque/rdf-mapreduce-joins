@@ -80,7 +80,7 @@ public class RepartitionLUBMQ12 {
 		// Reducer settings
 		job1.setReducerClass(Stage1_RepartitionReducer.class);  
 		job1.setOutputFormatClass(TextOutputFormat.class);
-		job1.setNumReduceTasks(1);
+
 		FileOutputFormat.setOutputPath(job1, new Path("output/LUBM-Q12-Repartition"));
 		
 		job1.setPartitionerClass(CompositePartitioner.class);

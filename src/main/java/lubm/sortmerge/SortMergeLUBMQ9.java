@@ -79,7 +79,7 @@ public class SortMergeLUBMQ9 {
 		// Reducer settings
 		job1.setReducerClass(Stage1_SortMergeReducer.class);  
 		job1.setOutputFormatClass(TextOutputFormat.class);
-		job1.setNumReduceTasks(1);
+
 		FileOutputFormat.setOutputPath(job1, new Path("output/LUBM-Q9-SortMerge"));
 
 		try {
