@@ -1,4 +1,4 @@
-package main.java.tools;
+package tools;
 
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;

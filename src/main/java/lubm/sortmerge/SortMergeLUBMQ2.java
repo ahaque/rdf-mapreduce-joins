@@ -1,4 +1,4 @@
-package main.java.lubm.sortmerge;
+package lubm.sortmerge;
 
 /**
  * Sort Merge Join LUBM Q2
@@ -11,9 +11,9 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-import main.java.bsbm.sortmerge.ReduceSideJoinBSBMQ12;
-import main.java.bsbm.sortmerge.ReduceSideJoinBSBMQ12.ReduceSideJoin_MapperStage1;
-import main.java.bsbm.sortmerge.ReduceSideJoinBSBMQ12.ReduceSideJoin_ReducerStage1;
+import bsbm.sortmerge.ReduceSideJoinBSBMQ12;
+import bsbm.sortmerge.ReduceSideJoinBSBMQ12.ReduceSideJoin_MapperStage1;
+import bsbm.sortmerge.ReduceSideJoinBSBMQ12.ReduceSideJoin_ReducerStage1;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
@@ -33,8 +33,8 @@ import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 
-import main.java.bsbm.sortmerge.KeyValueArrayWritable;
-import main.java.bsbm.sortmerge.SharedServices;
+import bsbm.sortmerge.KeyValueArrayWritable;
+import bsbm.sortmerge.SharedServices;
 
 
 public class SortMergeLUBMQ2 {
@@ -119,27 +119,59 @@ public class SortMergeLUBMQ2 {
 			
 			// TP-01, TP-02, TP-03
 			byte[] x_type = value.getValue(SharedServices.CF_AS_BYTES, Bytes.toBytes("ub_GraduateStudent"));
-			byte[] y_type = value.getValue(SharedServices.CF_AS_BYTES, Bytes.toBytes("ub_GraduateStudent"));
-			byte[] z_type = value.getValue(SharedServices.CF_AS_BYTES, Bytes.toBytes("ub_GraduateStudent"));
-			if (type1 == null) { return; }
-			String type_string = new String(type1);
-			if (!type_string.equals("rdf_type")) { return; }
-			
-			
-			// HBase row for that subject (Mapper Output: Value)
+			byte[] y_type = value.getValue(SharedServices.CF_AS_BYTES, Bytes.toBytes("ub_University"));
+			byte[] z_type = value.getValue(SharedServices.CF_AS_BYTES, Bytes.toBytes("ub_Department"));
+
 			List<KeyValue> entireRowAsList = value.list();
-			List<KeyValue> toTransmitList = new ArrayList<KeyValue>();
+			List<KeyValue> toTransmit = new ArrayList<KeyValue>();
 			
-			// Get the KVs to transmit
-			for (int i = 0; i < entireRowAsList.size(); i++) {
-				// Reduce data sent across network by writing only columns that we know will be used
-				if (Arrays.equals(entireRowAsList.get(i).getValue(), "ub_memberOf".getBytes())) {
-					toTransmitList.add(entireRowAsList.get(i));
-				} else if (Arrays.equals(entireRowAsList.get(i).getValue(), "ub_undergraduateDegreeFrom".getBytes())) {
-					toTransmitList.add(entireRowAsList.get(i));
+			// If this row is a grad student
+			if (x_type != null) {
+				// Emit TP-06
+				byte[] y_reducerKey = null;
+				byte[] z_reducerKey = null;
+				for (KeyValue kv : entireRowAsList) {
+					if (Arrays.equals(kv.getValue(), "ub_undergraduateDegreeFrom".getBytes())) {
+						toTransmit.add(kv);
+						y_reducerKey = kv.getQualifier();
+					} else if (Arrays.equals(kv.getValue(), "ub_memberOf".getBytes())) {
+						toTransmit.add(kv);
+						z_reducerKey = kv.getQualifier();
+					} else if (Arrays.equals(kv.getValue(), "rdf_type".getBytes())) {
+						toTransmit.add(kv);
+					} 
 				}
+				// Send this twice. Once for joining with Y and once for joining with Z
+				context.write(new Text(y_reducerKey), new KeyValueArrayWritable(SharedServices.listToArray(toTransmit)));
+				context.write(new Text(z_reducerKey), new KeyValueArrayWritable(SharedServices.listToArray(toTransmit)));
 			}
-	    	context.write(new Text(value.getRow()), new KeyValueArrayWritable(SharedServices.listToArray(toTransmitList)));
+			
+			// If this row is a university
+			else if (y_type != null) {
+				for (KeyValue kv : entireRowAsList) {
+					if (Arrays.equals(kv.getValue(), "rdf_type".getBytes())) {
+						toTransmit.add(kv);
+					}
+				}
+				context.write(new Text(value.getRow()), new KeyValueArrayWritable(SharedServices.listToArray(toTransmit)));
+			}
+			
+			// If this row is a department
+			else if (z_type != null) {
+				for (KeyValue kv : entireRowAsList) {
+					if (Arrays.equals(kv.getValue(), "ub_subOrganizationOf".getBytes())) {
+						toTransmit.add(kv);
+					} else if (Arrays.equals(kv.getValue(), "rdf_type".getBytes())) {
+						toTransmit.add(kv);
+					} 
+				}
+				context.write(new Text(value.getRow()), new KeyValueArrayWritable(SharedServices.listToArray(toTransmit)));
+			}
+			
+			// If this row is something else
+			else {
+				return;
+			}
 		}
 	}
 	
@@ -171,64 +203,43 @@ public class SortMergeLUBMQ2 {
 			   ---------------------------------------
 			 */
 
-			List<KeyValue> finalKeyValues = new ArrayList<KeyValue>();
-
-			// Find and get university information
-			// TP-06
-			KeyValue kv_university = null;
-			KeyValue kv_department = null;
+			byte[] rowKey = key.getBytes();
+			// Find out if this is X JOIN Y or X JOIN Z
+			String join = null;
 			for (KeyValueArrayWritable array : values) {
 				for (KeyValue kv : (KeyValue[]) array.toArray()) {
-					if (Arrays.equals(kv.getValue(), "ub_undergraduateDegreeFrom".getBytes())) {
-						kv_university = kv;
-						finalKeyValues.add(kv);
-					} else if (Arrays.equals(kv.getValue(), "ub_memberOf".getBytes())) {
-						kv_department = kv;
-						finalKeyValues.add(kv);
+					// Find the KV that matches with this row
+					if (Arrays.equals(kv.getValue(), "rdf_type".getBytes())) {
+						if (Arrays.equals(rowKey, kv.getRow())) {
+							if (Arrays.equals(kv.getQualifier(), "ub_University".getBytes())) {
+								join = "XY";
+							} else if (Arrays.equals(kv.getQualifier(), "ub_Department".getBytes())) {
+								join = "XZ";
+							}
+						}
 					}
 				}
-			}
-			if (kv_university == null) {
-				return;
-			}
-			// TP-02
-			Get g = new Get(kv_university.getQualifier());
-			g.addColumn(SharedServices.CF_AS_BYTES, "ub_University".getBytes());
-			Result universityResult = table.get(g);
-			byte[] universityPredicate = universityResult.getValue(SharedServices.CF_AS_BYTES,"ub_University".getBytes());
-			if (!Arrays.equals(universityPredicate, "rdf_type".getBytes())) {
-				return;
 			}
 			
-			// Find and get department information
-			// TP-04
-			if (kv_department == null) {
-				return;
-			}
-			// TP-03
-			Result departmentResult = table.get(new Get(kv_department.getQualifier()));
-			// TP-05
-			for (KeyValue kv : departmentResult.list()) {
-				if (Arrays.equals(kv.getValue(), "ub_subOrganizationOf".getBytes())) {
-					if (!Arrays.equals(kv.getQualifier(), kv_university.getQualifier())) {
-						return;
+			// Output the student and the university they went to for undergrad
+			if (join.equals("XY")) {
+				String gradStudent = null;
+				String university = null;
+				for (KeyValueArrayWritable array : values) {
+					for (KeyValue kv : (KeyValue[]) array.toArray()) {
+						if (Arrays.equals(kv.getValue(), "rdf_type".getBytes())) {
+							if (Arrays.equals(kv.getQualifier(), "ub_University".getBytes())) {
+								university = new String(kv.getRow());
+							} else if (Arrays.equals(kv.getQualifier(), "ub_GraduateStudent".getBytes())) {
+								gradStudent = new String(kv.getRow());
+							}
+						}
 					}
 				}
+				StringBuilder builder = new StringBuilder();
+				builder.append("\n" + gradStudent + "\t" + university);
+				context.write(new Text(builder.toString()), new Text(""));
 			}
-
-			// Format and output the values
-			StringBuilder builder = new StringBuilder();
-			builder.append("\n");
-			for (KeyValue kv : finalKeyValues) {
-				String[] triple = null;
-				try {
-					triple = SharedServices.keyValueToTripleString(kv);
-				} catch (ClassNotFoundException e) {
-					e.printStackTrace();
-				}
-				builder.append("\t" + triple[1] + "\t" + triple[2] + "\n");
-			}
-			context.write(key, new Text(builder.toString()));
 		}
 	}
 }

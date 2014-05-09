@@ -1,4 +1,4 @@
-package main.java.tools;
+package tools;
 
 import static org.apache.hadoop.hbase.util.Bytes.toBytes;
 
