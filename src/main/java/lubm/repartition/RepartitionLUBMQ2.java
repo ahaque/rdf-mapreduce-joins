@@ -222,11 +222,6 @@ public class RepartitionLUBMQ2 {
 	// Value: All projected attributes for the row key (subject)
 	public static class Stage1_RepartitionReducer extends Reducer<CompositeKeyWritable, KeyValueArrayWritable, Text, Text> {
 
-		private static Counter universitiesUsed;
-		private static Counter departmentsUsed;
-	    private static Counter gradStudentsUsed;
-	    private static Counter reducerIn;
-	    private static Counter reducerOut;
 		
         protected void setup(Context context) throws IOException, InterruptedException {   
 
@@ -245,31 +240,24 @@ public class RepartitionLUBMQ2 {
 			  [TP-06] ?X ub:undergraduateDegreeFrom ?Y}
 			   ---------------------------------------
 			 */
-			reducerIn.increment(1);
 			// Find out if this is X JOIN Y or X JOIN Z
 			for (KeyValueArrayWritable array : values) {
 				for (KeyValue kv : (KeyValue[]) array.toArray()) {
 					// X JOIN Z
 					if (Arrays.equals(kv.getValue(), "ub_memberOf".getBytes())) {
 						String temp = new String(kv.getRow()) + "\t" + new String(kv.getValue()) + "\t" + new String(kv.getQualifier());
-						gradStudentsUsed.increment(1);
-						reducerOut.increment(1);
 						context.write(new Text("XZ"), new Text(temp));
 						break;
 					}
 					// X JOIN Y
 					else if (Arrays.equals(kv.getValue(), "ub_undergraduateDegreeFrom".getBytes())) {
 						String temp = new String(kv.getRow()) + "\t" + new String(kv.getValue()) + "\t" + new String(kv.getQualifier());
-						universitiesUsed.increment(1);
-						reducerOut.increment(1);
 						context.write(new Text("XY"), new Text(temp));
 						break;
 					}
 					// SETTING UP FOR Y JOIN Z - We output the Z tuples (departments)
 					else if (Arrays.equals(kv.getValue(), "ub_subOrganizationOf".getBytes())) {
 						String temp = new String(kv.getRow()) + "\t" + new String(kv.getValue()) + "\t" + new String(kv.getQualifier());
-						departmentsUsed.increment(1);
-						reducerOut.increment(1);
 						context.write(new Text("ZY"), new Text(temp));
 						break;
 					}

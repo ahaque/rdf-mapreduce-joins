@@ -174,7 +174,7 @@ public class SortMergeLUBMQ2 {
 				// Send this twice. Once for joining with Y and once for joining with Z
 				context.write(new Text(y_reducerKey), new KeyValueArrayWritable(SharedServices.listToArray(toTransmitY)));
 				context.write(new Text(z_reducerKey), new KeyValueArrayWritable(SharedServices.listToArray(toTransmitZ)));
-			}
+			} 
 			
 			// If this row is a university
 			else if (y_type != null) {
@@ -196,7 +196,7 @@ public class SortMergeLUBMQ2 {
 					} 
 				}
 				context.write(new Text(value.getRow()), new KeyValueArrayWritable(SharedServices.listToArray(toTransmit)));
-			}
+			} 
 			
 			// If this row is something else
 			else {
