@@ -40,25 +40,12 @@ import bsbm.repartition.CompositePartitioner;
 import bsbm.repartition.CompositeSortComparator;
 import bsbm.sortmerge.KeyValueArrayWritable;
 import bsbm.sortmerge.SharedServices;
-import lubm.sortmerge.LUBMSharedServices.LUBMQ2_COUNTERS;
 
 
 public class RepartitionLUBMQ2 {
 	
 	// Begin Query Information
 	// End Query Information
-	
-	private static Counter univsIn;
-	private static Counter univsJoinedOn;
-	private static Counter depsIn;
-	private static Counter depsJoinedOn;
-	private static Counter univsDepsJoinTotal;
-	private static Counter setupTuplesIn;
-    private static Counter gradStudentsIn;
-    private static Counter gradStudentsJoinedOn;
-    private static Counter univDepGradStudentJoinTotal;
-    private static Counter mapTuplesIn;
-    private static Counter mapTuplesOut;
 		
 	public static void main(String[] args) throws ClassNotFoundException, IOException, InterruptedException {
 
@@ -149,20 +136,6 @@ public class RepartitionLUBMQ2 {
 	
 	public static class Stage1_RepartitionMapper extends TableMapper<CompositeKeyWritable, KeyValueArrayWritable> {
 		
-        protected void setup(Context context) throws IOException, InterruptedException {
-            
-			univsIn = context.getCounter(LUBMQ2_COUNTERS.UNIVERSITIES_IN);
-			univsJoinedOn = context.getCounter(LUBMQ2_COUNTERS.UNIVERSITIES_JOINED_ON);
-			depsIn = context.getCounter(LUBMQ2_COUNTERS.DEPARTMENTS_IN);
-			depsJoinedOn = context.getCounter(LUBMQ2_COUNTERS.DEPARTMENTS_JOINED_ON);
-			univsDepsJoinTotal = context.getCounter(LUBMQ2_COUNTERS.UNIVERSITIES_DEPARTMENTS_JOIN_TOTAL);
-			gradStudentsIn = context.getCounter(LUBMQ2_COUNTERS.GRAD_STUDENTS_IN);
-			gradStudentsJoinedOn = context.getCounter(LUBMQ2_COUNTERS.GRAD_STUDENTS_JOINED_ON);
-			univDepGradStudentJoinTotal = context.getCounter(LUBMQ2_COUNTERS.UNIV_DEP_GRA_STUDENT_JOIN_TOTAL);
-//			setupTuplesIn = context.getCounter(LUBM_COUNTERS.SETUP_TUPLES_IN);
-//			mapTuplesIn = context.getCounter(LUBM_COUNTERS.MAP_TUPLES_IN);
-//			mapTuplesOut = context.getCounter(LUBM_COUNTERS.MAP_TUPLES_OUT);
-        }
 		
 		public void map(ImmutableBytesWritable row, Result value, Context context) throws InterruptedException, IOException {
 		/* LUBM QUERY 2
@@ -180,7 +153,6 @@ public class RepartitionLUBMQ2 {
 		   ---------------------------------------
 		 */
 			
-			mapTuplesIn.increment(1);
 			// Determine if this row is a grad student, university, or department
 			// TP-01, TP-02, TP-03
 			byte[] x_type = value.getValue(SharedServices.CF_AS_BYTES, Bytes.toBytes("ub_GraduateStudent"));
@@ -192,7 +164,6 @@ public class RepartitionLUBMQ2 {
 			
 			// If this row is a grad student
 			if (x_type != null) {
-				gradStudentsIn.increment(1);
 				// Emit TP-06
 				byte[] y_reducerKey = null;
 				byte[] z_reducerKey = null;
@@ -219,7 +190,6 @@ public class RepartitionLUBMQ2 {
 			
 			// If this row is a university
 			else if (y_type != null) {
-				univsIn.increment(1);
 				for (KeyValue kv : entireRowAsList) {
 					if (Arrays.equals(kv.getValue(), "rdf_type".getBytes())) {
 						toTransmit.add(kv);
@@ -230,7 +200,6 @@ public class RepartitionLUBMQ2 {
 			
 			// If this row is a department
 			else if (z_type != null) {
-				depsIn.increment(1);
 				for (KeyValue kv : entireRowAsList) {
 					if (Arrays.equals(kv.getValue(), "ub_subOrganizationOf".getBytes())) {
 						toTransmit.add(kv);
@@ -253,6 +222,16 @@ public class RepartitionLUBMQ2 {
 	// Value: All projected attributes for the row key (subject)
 	public static class Stage1_RepartitionReducer extends Reducer<CompositeKeyWritable, KeyValueArrayWritable, Text, Text> {
 
+		private static Counter universitiesUsed;
+		private static Counter departmentsUsed;
+	    private static Counter gradStudentsUsed;
+	    private static Counter reducerIn;
+	    private static Counter reducerOut;
+		
+        protected void setup(Context context) throws IOException, InterruptedException {   
+
+        }
+		
 		public void reduce(CompositeKeyWritable key, Iterable<KeyValueArrayWritable> values, Context context) throws IOException, InterruptedException {
 			/* LUBM QUERY 2
 			   ----------------------------------------
@@ -266,25 +245,31 @@ public class RepartitionLUBMQ2 {
 			  [TP-06] ?X ub:undergraduateDegreeFrom ?Y}
 			   ---------------------------------------
 			 */
-
+			reducerIn.increment(1);
 			// Find out if this is X JOIN Y or X JOIN Z
 			for (KeyValueArrayWritable array : values) {
 				for (KeyValue kv : (KeyValue[]) array.toArray()) {
 					// X JOIN Z
 					if (Arrays.equals(kv.getValue(), "ub_memberOf".getBytes())) {
 						String temp = new String(kv.getRow()) + "\t" + new String(kv.getValue()) + "\t" + new String(kv.getQualifier());
+						gradStudentsUsed.increment(1);
+						reducerOut.increment(1);
 						context.write(new Text("XZ"), new Text(temp));
 						break;
 					}
 					// X JOIN Y
 					else if (Arrays.equals(kv.getValue(), "ub_undergraduateDegreeFrom".getBytes())) {
 						String temp = new String(kv.getRow()) + "\t" + new String(kv.getValue()) + "\t" + new String(kv.getQualifier());
+						universitiesUsed.increment(1);
+						reducerOut.increment(1);
 						context.write(new Text("XY"), new Text(temp));
 						break;
 					}
 					// SETTING UP FOR Y JOIN Z - We output the Z tuples (departments)
 					else if (Arrays.equals(kv.getValue(), "ub_subOrganizationOf".getBytes())) {
 						String temp = new String(kv.getRow()) + "\t" + new String(kv.getValue()) + "\t" + new String(kv.getQualifier());
+						departmentsUsed.increment(1);
+						reducerOut.increment(1);
 						context.write(new Text("ZY"), new Text(temp));
 						break;
 					}

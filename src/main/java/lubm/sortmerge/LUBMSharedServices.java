@@ -90,14 +90,37 @@ public class LUBMSharedServices {
 	/**
 	 * Counters are used to calculate join cardinality
 	 */
-	public static enum LUBMQ2_COUNTERS {
+	public static enum LUBM_ROW_COUNTERS {
         UNIVERSITIES_IN,
+        UNIVERSITIES_JOINED,
         DEPARTMENTS_IN,
-        UNIVERSITIES_JOINED_ON,
-        DEPARTMENTS_JOINED_ON,
-        UNIVERSITIES_DEPARTMENTS_JOIN_TOTAL,
+        DEPARTMENTS_JOINED,
+        STUDENTS_IN,
+        STUDENTS_JOINED,
+        COURSES_IN,
+        COURSES_JOINED,
         GRAD_STUDENTS_IN,
-        GRAD_STUDENTS_JOINED_ON,
-        UNIV_DEP_GRA_STUDENT_JOIN_TOTAL
+        GRAD_STUDENTS_JOINED,
+        MAPPER_IN,
+        MAPPER_OUT,
+        REDUCER_IN,
+        REDUCER_OUT
+    }
+	
+	public static enum LUBM_TRIPLE_COUNTERS {
+        UNIVERSITIES_IN,
+        UNIVERSITIES_JOINED,
+        DEPARTMENTS_IN,
+        DEPARTMENTS_JOINED,
+        STUDENTS_IN,
+        STUDENTS_JOINED,
+        COURSES_IN,
+        COURSES_JOINED,
+        GRAD_STUDENTS_IN,
+        GRAD_STUDENTS_JOINED,
+        MAPPER_IN,
+        MAPPER_OUT,
+        REDUCER_IN,
+        REDUCER_OUT
     }
 }
