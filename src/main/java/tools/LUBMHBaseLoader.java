@@ -41,38 +41,38 @@ public class LUBMHBaseLoader extends Mapper<LongWritable, Text, ImmutableBytesWr
 
   @Override
   protected void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
+		try {
+			for (LUBMDataSetProcessor.Triple triple : LUBMDataSetProcessor.process(value.toString())) {
+				byte[] subject = toBytes(triple.subject);
+				Put put = new Put(subject);
+				// if the triple is not a valu triple we store the object as the
+				// col name and the predicate as the col
+				// value so that we can do bloom filtered s-o joins
+				if (!triple.isValueTriple()) {
+					put.add(toBytes(LUBMDataSetProcessor.COLUMN_FAMILY),
+							toBytes(triple.object), timestamp++,
+							toBytes(triple.predicate));
+					// if it is a value (like an int or a data) we wouldn't join
+					// on it anyway so store as usual
+				} else {
+					put.add(toBytes(LUBMDataSetProcessor.COLUMN_FAMILY),
+							toBytes(triple.predicate), timestamp++,
+							triple.value);
+				}
 
-    for (LUBMDataSetProcessor.Triple triple : LUBMDataSetProcessor.process(value.toString())) {
-
-      byte[] subject = toBytes(triple.subject);
-
-      Put put = new Put(subject);
-
-      // if the triple is not a valu triple we store the object as the col name and the predicate as the col
-      // value so that we can do bloom filtered s-o joins
-      if (!triple.isValueTriple()) {
-        put.add(toBytes(LUBMDataSetProcessor.COLUMN_FAMILY),
-          toBytes(triple.object),
-          timestamp++,
-          toBytes(triple.predicate));
-        // if it is a value (like an int or a data) we wouldn't join on it anyway so store as usual
-      } else {
-        put.add(toBytes(LUBMDataSetProcessor.COLUMN_FAMILY),
-          toBytes(triple.predicate),
-          timestamp++,
-          triple.value);
-      }
-
-      ImmutableBytesWritable ibKey = new ImmutableBytesWritable(subject);
-      context.write(ibKey, put);
-    }
+				ImmutableBytesWritable ibKey = new ImmutableBytesWritable(subject);
+				context.write(ibKey, put);
+			}
+		} catch (IllegalStateException e) {
+			return;
+		}
   }
 
   public static void main(String[] args) throws Exception {
 
-    String USAGE_MSG = "  Arguments: <hbase table name> <zk quorum> <input path> <output path> <number of slave nodes> <dataset size {10,100,1000}>";
+    String USAGE_MSG = "  Arguments: <table name> <zk quorum> <input path> <output path> <number of slave nodes {2^n}> <dataset size {10,100,1000}> <bloom type {none,row,rowcol}>";
 
-    if (args == null || args.length != 6) {
+    if (args == null || args.length != 7) {
       System.out.println(USAGE_MSG);
       System.exit(0);
     }
@@ -90,6 +90,11 @@ public class LUBMHBaseLoader extends Mapper<LongWritable, Text, ImmutableBytesWr
     }
     if (!((numNodes & -numNodes) == numNodes)) {
     	System.out.println("  Number of nodes must be a power of 2");
+    	System.exit(0);
+    }
+    if (!args[6].equals("none") && !args[6].equals("row") && !args[6].equals("rowcol")) {
+    	System.out.println(USAGE_MSG);
+    	System.out.println("  Bloom type must be one of {none, row, rowcol}");
     	System.exit(0);
     }
     
@@ -146,7 +151,12 @@ public class LUBMHBaseLoader extends Mapper<LongWritable, Text, ImmutableBytesWr
         HTableDescriptor desc = new HTableDescriptor();
         desc.setName(hbaseTable.getBytes());
         HColumnDescriptor colDesc = new HColumnDescriptor(LUBMDataSetProcessor.COLUMN_FAMILY);
-        colDesc.setBloomFilterType(BloomType.ROWCOL);
+        // Set the bloom type
+        switch (args[6]) {
+        case "none": colDesc.setBloomFilterType(BloomType.NONE); break;
+        case "row": colDesc.setBloomFilterType(BloomType.ROW); break;
+        case "rowcol": colDesc.setBloomFilterType(BloomType.ROWCOL); break;
+        }
         colDesc.setCacheBloomsOnWrite(true);
         colDesc.setMaxVersions(3);
         desc.addFamily(colDesc);

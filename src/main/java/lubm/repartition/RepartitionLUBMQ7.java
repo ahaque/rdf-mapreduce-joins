@@ -1,7 +1,7 @@
-package lubm.sortmerge;
+package lubm.repartition;
 
 /**
- * Sort Merge Join LUBM Q7
+ * Repartition Join LUBM Q7
  * @date May 2014
  * @author Albert Haque
  */
@@ -11,6 +11,10 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
+
+import lubm.sortmerge.LUBMSharedServices;
+import lubm.sortmerge.LUBMSharedServices.LUBM_ROW_COUNTERS;
+import lubm.sortmerge.LUBMSharedServices.LUBM_TRIPLE_COUNTERS;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
@@ -25,18 +29,24 @@ import org.apache.hadoop.hbase.mapreduce.TableMapReduceUtil;
 import org.apache.hadoop.hbase.mapreduce.TableMapper;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.io.Text;
+import org.apache.hadoop.mapreduce.Counter;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Reducer;
+import org.apache.hadoop.mapreduce.Mapper.Context;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 
+import bsbm.repartition.CompositeGroupingComparator;
+import bsbm.repartition.CompositeKeyWritable;
+import bsbm.repartition.CompositePartitioner;
+import bsbm.repartition.CompositeSortComparator;
 import bsbm.sortmerge.KeyValueArrayWritable;
 import bsbm.sortmerge.SharedServices;
 
 
-public class SortMergeLUBMQ7 {
+public class RepartitionLUBMQ7 {
 	
 	// Begin Query Information
-	private static String Professor = "Department0.University0.edu/AssociateProfessor0";
+	public static String Professor = "Department0.University0.edu/AssociateProfessor0";
 	// End Query Information
 		
 	public static void main(String[] args) throws ClassNotFoundException, IOException, InterruptedException {
@@ -67,8 +77,8 @@ public class SortMergeLUBMQ7 {
 		
 		@SuppressWarnings("deprecation")
 		Job job = new Job(hConf);
-		job.setJobName("LUBM-Q7-SortMerge");
-		job.setJarByClass(SortMergeLUBMQ7.class);
+		job.setJobName("LUBM-Q7-Repartition");
+		job.setJarByClass(RepartitionLUBMQ7.class);
 		// Change caching to speed up the scan
 		scan.setCaching(500);        
 		scan.setCacheBlocks(false);
@@ -77,15 +87,21 @@ public class SortMergeLUBMQ7 {
 		TableMapReduceUtil.initTableMapperJob(
 				args[0],        // input HBase table name
 				scan,             // Scan instance to control CF and attribute selection
-				SortMergeMapper.class,   // mapper
-				Text.class,         // mapper output key
+				RepartitionMapper.class,   // mapper
+				CompositeKeyWritable.class,         // mapper output key
 				KeyValueArrayWritable.class,  // mapper output value
 				job);
 
 		// Reducer settings
-		job.setReducerClass(SortMergeReducer.class);    // reducer class
+		job.setReducerClass(RepartitionReducer.class);    // reducer class
+		
+		// Repartition settings
+		job.setPartitionerClass(CompositePartitioner.class);
+		job.setSortComparatorClass(CompositeSortComparator.class);
+		job.setGroupingComparatorClass(CompositeGroupingComparator.class);
+		
 	
-		FileOutputFormat.setOutputPath(job, new Path("output/LUBM-Q7-SortMerge"));
+		FileOutputFormat.setOutputPath(job, new Path("output/LUBM-Q7-Repartition"));
 
 		try {
 			System.exit(job.waitForCompletion(true) ? 0 : 1);
@@ -96,7 +112,20 @@ public class SortMergeLUBMQ7 {
 	}
 	
 	
-	public static class SortMergeMapper extends TableMapper<Text, KeyValueArrayWritable> {
+	public static class RepartitionMapper extends TableMapper<CompositeKeyWritable, KeyValueArrayWritable> {
+		
+		private static Counter studentRowsIn;
+		private static Counter courseRowsIn;
+	    private static Counter mapperRowsIn;
+	    private static Counter mapperRowsOut;
+
+        protected void setup(Context context) throws IOException, InterruptedException {   
+			courseRowsIn = context.getCounter(LUBM_ROW_COUNTERS.COURSES_IN);
+			studentRowsIn = context.getCounter(LUBM_ROW_COUNTERS.STUDENTS_IN);
+			mapperRowsIn = context.getCounter(LUBM_ROW_COUNTERS.MAPPER_IN);
+			mapperRowsOut = context.getCounter(LUBM_ROW_COUNTERS.MAPPER_OUT);
+        }
+		
 		
 		public void map(ImmutableBytesWritable row, Result value, Context context) throws InterruptedException, IOException {
 		/* LUBM QUERY 7
@@ -110,7 +139,7 @@ public class SortMergeLUBMQ7 {
 			[TP-04] <http://www.Department0.University0.edu/AssociateProfessor0> ub:teacherOf ?Y
 			}
 		   ---------------------------------------
-		 */		
+		 */
 			// If this is TP-04
 			if (Arrays.equals(value.getRow(), Professor.getBytes())) {
 				List<KeyValue> toTransmit = new ArrayList<KeyValue>();
@@ -124,7 +153,7 @@ public class SortMergeLUBMQ7 {
 				for (KeyValue kv : toTransmit) {
 					KeyValue[] singleKv = new KeyValue[1];
 					singleKv[0] = kv;
-					context.write(new Text(kv.getQualifier()), new KeyValueArrayWritable(singleKv));
+					context.write(new CompositeKeyWritable(kv.getQualifier(),1), new KeyValueArrayWritable(singleKv));
 				}
 				return;
 			}
@@ -146,7 +175,7 @@ public class SortMergeLUBMQ7 {
 			for (KeyValue kv : courses) {
 				KeyValue[] singleKv = new KeyValue[1];
 				singleKv[0] = kv;
-				context.write(new Text(kv.getQualifier()), new KeyValueArrayWritable(singleKv));
+				context.write(new CompositeKeyWritable(kv.getQualifier(),2), new KeyValueArrayWritable(singleKv));
 			}
 		}
 	}
@@ -154,9 +183,21 @@ public class SortMergeLUBMQ7 {
 	// Output format:
 	// Key: HBase Row Key (subject)
 	// Value: All projected attributes for the row key (subject)
-	public static class SortMergeReducer extends Reducer<Text, KeyValueArrayWritable, Text, Text> {
+	public static class RepartitionReducer extends Reducer<CompositeKeyWritable, KeyValueArrayWritable, Text, Text> {
+		
+		private static Counter studentRowsJoined;
+		private static Counter courseRowsJoined;
+	    private static Counter reducerRowsIn;
+	    private static Counter reducerRowsOut;
 
-		public void reduce(Text key, Iterable<KeyValueArrayWritable> values, Context context) throws IOException, InterruptedException {
+        protected void setup(Context context) throws IOException, InterruptedException {   
+        	courseRowsJoined = context.getCounter(LUBM_ROW_COUNTERS.COURSES_IN);
+        	studentRowsJoined = context.getCounter(LUBM_ROW_COUNTERS.STUDENTS_IN);
+        	reducerRowsIn = context.getCounter(LUBM_ROW_COUNTERS.REDUCER_OUT);
+			reducerRowsOut = context.getCounter(LUBM_ROW_COUNTERS.REDUCER_OUT);
+        }
+
+		public void reduce(CompositeKeyWritable key, Iterable<KeyValueArrayWritable> values, Context context) throws IOException, InterruptedException {
 			/* LUBM QUERY 7
 			   ----------------------------------------
 			SELECT ?X, ?Y
@@ -170,20 +211,22 @@ public class SortMergeLUBMQ7 {
 			   ---------------------------------------
 			 */
 			ArrayList<String> students = new ArrayList<String>();
+			String course = null;
 			boolean validTakesCourse = false;
 			
 			for (KeyValueArrayWritable array : values) {
 				for (KeyValue kv : (KeyValue[]) array.toArray()) {
 					if (Arrays.equals(kv.getValue(), "ub_takesCourse".getBytes())) {
 						students.add(new String(kv.getRow()));
+						course = new String(kv.getQualifier());
 					} else if (Arrays.equals(kv.getValue(), "ub_teacherOf".getBytes())) {
 						validTakesCourse = true;
 					}
 				}
 			}
-			if (validTakesCourse == true && students.size() > 0) {
+			if (validTakesCourse == true && students.size() > 0 && course != null) {
 				for (String s : students) {
-					context.write(new Text(s + "\t" + key.toString()), new Text());
+					context.write(new Text(s + "\t" + course), new Text());
 				}
 			}
 		}

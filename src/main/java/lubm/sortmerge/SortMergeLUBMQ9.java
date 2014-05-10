@@ -9,14 +9,14 @@ package lubm.sortmerge;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hbase.HBaseConfiguration;
 import org.apache.hadoop.hbase.KeyValue;
-import org.apache.hadoop.hbase.client.Get;
-import org.apache.hadoop.hbase.client.HTable;
 import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
@@ -26,161 +26,220 @@ import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
+import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 
 import bsbm.sortmerge.KeyValueArrayWritable;
-import bsbm.sortmerge.SharedServices;
 
 
 public class SortMergeLUBMQ9 {
+	
+	// Begin Query Information
+	
+	// End Query Information
 		
 	public static void main(String[] args) throws ClassNotFoundException, IOException, InterruptedException {
+
 		String USAGE_MSG = "Arguments: <table name> <zookeeper quorum>";
+
 		if (args == null || args.length != 2) {
 			System.out.println("\n  You entered " + args.length + " arguments.");
 			System.out.println("  " + USAGE_MSG);
 			System.exit(0);
 		}
-		startJob(args);
-	}
-	
-	public static Job startJob(String[] args) throws IOException {
-		
-		// args[0] = hbase table name
-		// args[1] = zookeeper
 		
 		Configuration hConf = HBaseConfiguration.create(new Configuration());
 	    hConf.set("hbase.zookeeper.quorum", args[1]);
 	    hConf.set("scan.table", args[0]);
 	    hConf.set("hbase.zookeeper.property.clientPort", "2181");
-
-	    Scan scan = new Scan();
-	    //scan.setFilter(rowColBloomFilter());
 		
-		Job job = new Job(hConf);
-		job.setJobName("LUBM-Q9-SortMerge");
-		job.setJarByClass(SortMergeLUBMQ9.class);
-		scan.setCaching(500);        
-		scan.setCacheBlocks(false);
+		startJob_Stage1(args, hConf);
+	}
+	
+	public static Job startJob_Stage1(String[] args, Configuration hConf) throws IOException {
+		
+	    Scan scan1 = new Scan();		
+		@SuppressWarnings("deprecation")
+		Job job1 = new Job(hConf);
+		job1.setJobName("LUBM-Q9-SortMerge");
+		job1.setJarByClass(SortMergeLUBMQ9.class);
+		// Change caching and number of time stamps to speed up the scan
+		scan1.setCaching(500);        
+		scan1.setMaxVersions(3);
+		scan1.setCacheBlocks(false);
 		
 		// Mapper settings
 		TableMapReduceUtil.initTableMapperJob(
-				args[0],        // input HBase table name
-				scan,             // Scan instance to control CF and attribute selection
-				SortMergeMapper.class,   // mapper
-				Text.class,         // mapper output key
-				KeyValueArrayWritable.class,  // mapper output value
-				job);
+				args[0],		// Input HBase table name
+				scan1,			// Scan instance to control CF and attribute selection
+				Stage1_SortMergeMapper.class,	// MAP: Class
+				Text.class,		// MAP: Output Key
+				KeyValueArrayWritable.class,  	// MAP: Output Value
+				job1);
 
 		// Reducer settings
-		job.setReducerClass(SortMergeReducer.class);    // reducer class
-		//job.setReducerClass(SharedServices.ReduceSideJoin_Reducer.class);
-		//job.setNumReduceTasks(1);    // at least one, adjust as required
-	
-		FileOutputFormat.setOutputPath(job, new Path("output/LUBMQ9"));
+		job1.setReducerClass(Stage1_SortMergeReducer.class);  
+		job1.setOutputFormatClass(TextOutputFormat.class);
+
+		FileOutputFormat.setOutputPath(job1, new Path("output/LUBM-Q9-SortMerge"));
 
 		try {
-			System.exit(job.waitForCompletion(true) ? 0 : 1);
+			job1.waitForCompletion(true);
 		} catch (ClassNotFoundException e) { e.printStackTrace(); }
 		  catch (InterruptedException e) { e.printStackTrace();}
 
-		return job;
+		return job1;
 	}
 	
 	
-	public static class SortMergeMapper extends TableMapper<Text, KeyValueArrayWritable> {
+	public static class Stage1_SortMergeMapper extends TableMapper<Text, KeyValueArrayWritable> {
+		
+		private static String[] typesToCheck = {
+				"ub_GraduateStudent",
+				"ub_UndergraduateStudent",
+				"ub_AssistantProfessor",
+				"ub_AssociateProfessor",
+				"ub_FullProfessor",
+				"ub_Lecturer",
+				"ub_Course",
+				"ub_GraduateCourse"
+		};
+		
+		private static String realRowTypeToQueryType(String realRowType) {
+			String rowType = null;
+			switch (realRowType) {
+			case "ub_GraduateStudent": rowType = "ub_Student"; break;
+			case "ub_UndergraduateStudent": rowType = "ub_Student"; break;
+			case "ub_AssistantProfessor": rowType = "ub_Faculty"; break;
+			case "ub_AssociateProfessor": rowType = "ub_Faculty"; break;
+			case "ub_FullProfessor": rowType = "ub_Faculty"; break;
+			case "ub_Lecturer": rowType = "ub_Faculty"; break;
+			case "ub_Course": rowType = "ub_Course"; break;
+			case "ub_GraduateCourse": rowType = "ub_Course"; break;
+			}
+			return rowType;
+		}
 		
 		public void map(ImmutableBytesWritable row, Result value, Context context) throws InterruptedException, IOException {
 		/* LUBM QUERY 9
 		   ----------------------------------------
-		SELECT ?X, ?Y, ?Z
-		WHERE
-		{ [TP-01] ?X rdf:type ub:Student .
-		  [TP-02] ?Y rdf:type ub:Faculty .
-		  [TP-03] ?Z rdf:type ub:Course .
-		  [TP-04] ?X ub:advisor ?Y .
-		  [TP-05] ?Y ub:teacherOf ?Z .
-		  [TP-06] ?X ub:takesCourse ?Z}
+			SELECT ?X, ?Y, ?Z
+			WHERE
+			{ [TP-01] ?X rdf:type ub:Student .
+			  [TP-02] ?Y rdf:type ub:Faculty .
+			  [TP-03] ?Z rdf:type ub:Course .
+			  [TP-04] ?X ub:advisor ?Y .
+			  [TP-05] ?Y ub:teacherOf ?Z .
+			  [TP-06] ?X ub:takesCourse ?Z }
 		   ---------------------------------------
 		 */
-	
-			List<KeyValue> toTransmit = new ArrayList<KeyValue>();
-			for (KeyValue kv : value.list()) {
-				if (Arrays.equals(kv.getQualifier(), "ub_Student".getBytes())) {
-					// TP-01
-					if (!Arrays.equals(kv.getValue(), "rdf_type".getBytes())) {
-						return;
+			// Determine if this row is a student, faculty, or course
+			String realRowType = LUBMSharedServices.getTypeFromHBaseRow(value, typesToCheck);
+			if (realRowType == null) { return; }
+			
+			String rowType = realRowTypeToQueryType(realRowType);
+			
+			List<KeyValue> entireRowAsList = value.list();
+			
+			// If this row is a student
+			if (rowType.equals("ub_Student")) {
+				// Emit TP-04 and TP-06
+				List<KeyValue> toTransmitCourseZ = new ArrayList<KeyValue>();
+				KeyValue advisorKv = null;
+				for (KeyValue kv : entireRowAsList) {
+					if (Arrays.equals(kv.getValue(), "ub_advisor".getBytes())) {
+						advisorKv = kv;
+					} else if (Arrays.equals(kv.getValue(), "ub_takesCourse".getBytes())) {
+						toTransmitCourseZ.add(kv);
 					}
-				} else if (Arrays.equals(kv.getValue(), "ub_memberOf".getBytes())) {
-					// TP-03
-					toTransmit.add(kv);
-				} else if (Arrays.equals(kv.getQualifier(), "ub_emailAddress".getBytes())) {
-					// TP-05
-					toTransmit.add(kv);
+				}
+				// If this student doesn't have an advisor or takes zero courses...
+				if (advisorKv == null || toTransmitCourseZ.size() == 0) { return; }
+
+				/* 
+				 * Since a student can be enrolled in more than 1 course, send the correct KV to the correct course reducer
+				 * Also send the student's advisor because we'll join
+				 * ADVISOR and COURSE (to make sure ADVISOR teaches COURSE) on the reducer
+				 */
+				for (KeyValue kv : toTransmitCourseZ) {
+					KeyValue[] smallArray = new KeyValue[2];
+					smallArray[0] = kv;
+					smallArray[1] = advisorKv;
+					context.write(new Text(kv.getQualifier()), new KeyValueArrayWritable(smallArray));
 				}
 			}
-			context.write(new Text(value.getRow()), new KeyValueArrayWritable(SharedServices.listToArray(toTransmit)));
+			
+			// If this row is a faculty
+			else if (rowType.equals("ub_Faculty")) {
+				ArrayList<KeyValue> teachesCourses = new ArrayList<KeyValue>();
+				for (KeyValue kv : entireRowAsList) {
+					// Emit TP-05
+					if (Arrays.equals(kv.getValue(), "ub_teacherOf".getBytes())) {
+						teachesCourses.add(kv);
+					}
+				}
+				// Send the faculty to the course they teach
+				for (KeyValue kv : teachesCourses) {
+					KeyValue[] singleCourse = new KeyValue[1];
+					singleCourse[0] = kv;
+					context.write(new Text(kv.getQualifier()), new KeyValueArrayWritable(singleCourse));
+				}
+			}
+			
+			// If this row is a course
+			// We technically don't use this KV in the reducer but we'll send it anyway in case
+//			else if (rowType.equals("ub_Course")) {
+//				for (KeyValue kv : entireRowAsList) {
+//					if (Arrays.equals(kv.getValue(), "rdf_type".getBytes())) {
+//						toTransmit.add(kv);
+//					}
+//				}
+//				context.write(new Text(value.getRow()), new KeyValueArrayWritable(SharedServices.listToArray(toTransmit)));
+//			}
+			// If this row is something else
+			else {
+				return;
+			}
 		}
 	}
 	
-	public static class SortMergeReducer extends Reducer<Text, KeyValueArrayWritable, Text, Text> {
-
-		HTable table;
-		@Override
-		protected void setup(Context context) throws IOException,
-				InterruptedException {
-			Configuration conf = context.getConfiguration();
-			table = new HTable(conf, conf.get("scan.table"));
-		}
+	public static class Stage1_SortMergeReducer extends Reducer<Text, KeyValueArrayWritable, Text, Text> {
 
 		public void reduce(Text key, Iterable<KeyValueArrayWritable> values, Context context) throws IOException, InterruptedException {
 			/* LUBM QUERY 9
 			   ----------------------------------------
-		SELECT ?X, ?Y, ?Z
-		WHERE
-		{ [TP-01] ?X rdf:type ub:Student .
-		  [TP-02] ?Y rdf:type ub:Faculty .
-		  [TP-03] ?Z rdf:type ub:Course .
-		  [TP-04] ?X ub:advisor ?Y .
-		  [TP-05] ?Y ub:teacherOf ?Z .
-		  [TP-06] ?X ub:takesCourse ?Z }
+			SELECT ?X, ?Y, ?Z
+			WHERE
+			{ [TP-01] ?X rdf:type ub:Student .
+			  [TP-02] ?Y rdf:type ub:Faculty .
+			  [TP-03] ?Z rdf:type ub:Course .
+			  [TP-04] ?X ub:advisor ?Y .
+			  [TP-05] ?Y ub:teacherOf ?Z .
+			  [TP-06] ?X ub:takesCourse ?Z }
 			   ---------------------------------------
 			 */
-			// Find the department name
-			KeyValue kv_department = null;
-			String email = null;
+			
+			// Key: Student, Value: Faculty (keys are students in this course)
+			HashMap<String, String> studentHasAdvisor = new HashMap<String, String>();
+			
+			// List of faculty teaching this course
+			HashSet<String> facultyTeachingThisCourse = new HashSet<String>();
+
 			for (KeyValueArrayWritable array : values) {
 				for (KeyValue kv : (KeyValue[]) array.toArray()) {
-					if (Arrays.equals(kv.getValue(), "ub_memberOf".getBytes())) {
-						kv_department = kv;
-					} else if (Arrays.equals(kv.getQualifier(), "ub_emailAddress".getBytes())) {
-						email = new String(kv.getValue());
-					} 
+					if (Arrays.equals(kv.getValue(), "ub_teacherOf".getBytes())) {
+						facultyTeachingThisCourse.add(new String(kv.getRow()));
+					} else if (Arrays.equals(kv.getValue(), "ub_advisor".getBytes())) {
+						studentHasAdvisor.put(new String(kv.getRow()), new String(kv.getQualifier()));
+					}
 				}
 			}
-			if (kv_department == null) {
-				return;
-			}
-
-			Get g = new Get(kv_department.getQualifier());
-			g.addColumn(SharedServices.CF_AS_BYTES, "ub_Department".getBytes());
-			g.addColumn(SharedServices.CF_AS_BYTES, "University0.edu".getBytes());
-			Result departmentResult = table.get(g);
-			// TP-04
-			byte[] subOrg = departmentResult.getValue(SharedServices.CF_AS_BYTES,"University0.edu".getBytes());
-			if (subOrg == null) { return; }
-			if (!Arrays.equals(subOrg, "ub_subOrganizationOf".getBytes())) { return; }
-			// TP-02
-			byte[] predType = departmentResult.getValue(SharedServices.CF_AS_BYTES,"ub_Department".getBytes());
-			if (predType == null) {	return;	}
-			if (!Arrays.equals(predType, "rdf_type".getBytes())) { return; }
 			
-			// If we've made it this far, then output the result
-			StringBuilder builder = new StringBuilder();
-			builder.append("\n");
-			builder.append(new String(kv_department.getRow()) + "\t");
-			builder.append(new String(kv_department.getQualifier()) + "\t");
-			builder.append(email + "\n");
-			context.write(key, new Text(builder.toString()));
+			for (String s : studentHasAdvisor.keySet()) {
+				if (facultyTeachingThisCourse.contains(studentHasAdvisor.get(s))) {
+					String triple = s + "\t" + studentHasAdvisor.get(s) + "\t" + key;
+					context.write(new Text(triple), new Text());
+				}
+			}			
 		}
 	}
 }
