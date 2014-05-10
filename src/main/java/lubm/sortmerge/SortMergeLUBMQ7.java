@@ -84,7 +84,6 @@ public class SortMergeLUBMQ7 {
 
 		// Reducer settings
 		job.setReducerClass(SortMergeReducer.class);    // reducer class
-		job.setNumReduceTasks(1);
 	
 		FileOutputFormat.setOutputPath(job, new Path("output/LUBM-Q7-SortMerge"));
 

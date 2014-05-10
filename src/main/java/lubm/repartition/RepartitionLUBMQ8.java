@@ -88,7 +88,6 @@ public class RepartitionLUBMQ8 {
 
 		// Reducer settings
 		job.setReducerClass(RepartitionReducer.class);    // reducer class
-		//job.setNumReduceTasks(1);    // at least one, adjust as required
 		
 		// Repartition settings
 		job.setPartitionerClass(CompositePartitioner.class);
