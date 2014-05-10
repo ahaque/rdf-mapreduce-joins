@@ -14,6 +14,8 @@ import java.util.HashSet;
 import java.util.List;
 
 import lubm.sortmerge.LUBMSharedServices;
+import lubm.sortmerge.LUBMSharedServices.LUBM_ROW_COUNTERS;
+import lubm.sortmerge.LUBMSharedServices.LUBM_TRIPLE_COUNTERS;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
@@ -25,8 +27,10 @@ import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.mapreduce.TableMapReduceUtil;
 import org.apache.hadoop.hbase.mapreduce.TableMapper;
 import org.apache.hadoop.io.Text;
+import org.apache.hadoop.mapreduce.Counter;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Reducer;
+import org.apache.hadoop.mapreduce.Mapper.Context;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 
@@ -105,15 +109,15 @@ public class RepartitionLUBMQ9 {
 	
 	public static class Stage1_RepartitionMapper extends TableMapper<CompositeKeyWritable, KeyValueArrayWritable> {
 		
-		private static String[] typesToCheck = {
-			"ub_GraduateStudent",
-			"ub_UndergraduateStudent",
-			"ub_AssistantProfessor",
-			"ub_AssociateProfessor",
-			"ub_FullProfessor",
-			"ub_Lecturer",
-			"ub_Course",
-			"ub_GraduateCourse"
+	private static String[] typesToCheck = {
+		"ub_GraduateStudent",
+		"ub_UndergraduateStudent",
+		"ub_AssistantProfessor",
+		"ub_AssociateProfessor",
+		"ub_FullProfessor",
+		"ub_Lecturer",
+		"ub_Course",
+		"ub_GraduateCourse"
 	};
 	
 	private static String realRowTypeToQueryType(String realRowType) {
@@ -131,6 +135,32 @@ public class RepartitionLUBMQ9 {
 		return rowType;
 	}
 	
+	private static Counter studentRowsIn;
+	private static Counter courseRowsIn;
+	private static Counter facultyRowsIn;
+    private static Counter mapperRowsIn;
+    private static Counter mapperRowsOut;
+    
+    private static Counter studentTriplesIn;
+	private static Counter courseTriplesIn;
+	private static Counter facultyTriplesIn;
+    private static Counter mapperTriplesIn;
+    private static Counter mapperTriplesOut;
+
+    protected void setup(Context context) throws IOException, InterruptedException {   
+		courseRowsIn = context.getCounter(LUBM_ROW_COUNTERS.COURSES_IN);
+		studentRowsIn = context.getCounter(LUBM_ROW_COUNTERS.STUDENTS_IN);
+		facultyRowsIn = context.getCounter(LUBM_ROW_COUNTERS.FACULTY_IN);
+		mapperRowsIn = context.getCounter(LUBM_ROW_COUNTERS.MAPPER_IN);
+		mapperRowsOut = context.getCounter(LUBM_ROW_COUNTERS.MAPPER_OUT);
+		
+		courseTriplesIn = context.getCounter(LUBM_TRIPLE_COUNTERS.COURSES_IN);
+		studentTriplesIn = context.getCounter(LUBM_TRIPLE_COUNTERS.STUDENTS_IN);
+		facultyTriplesIn = context.getCounter(LUBM_TRIPLE_COUNTERS.FACULTY_IN);
+		mapperTriplesIn = context.getCounter(LUBM_TRIPLE_COUNTERS.MAPPER_IN);
+		mapperTriplesOut = context.getCounter(LUBM_TRIPLE_COUNTERS.MAPPER_OUT);
+    }
+	
 	public void map(ImmutableBytesWritable row, Result value, Context context) throws InterruptedException, IOException {
 	/* LUBM QUERY 9
 	   ----------------------------------------
@@ -144,16 +174,22 @@ public class RepartitionLUBMQ9 {
 		  [TP-06] ?X ub:takesCourse ?Z }
 	   ---------------------------------------
 	 */
+		
+		mapperRowsIn.increment(1);
+		
 		// Determine if this row is a student, faculty, or course
 		String realRowType = LUBMSharedServices.getTypeFromHBaseRow(value, typesToCheck);
 		if (realRowType == null) { return; }
-		
 		String rowType = realRowTypeToQueryType(realRowType);
 		
 		List<KeyValue> entireRowAsList = value.list();
+		long numTriplesInRow = entireRowAsList.size();
+		mapperTriplesIn.increment(numTriplesInRow);
 		
 		// If this row is a student
 		if (rowType.equals("ub_Student")) {
+			studentRowsIn.increment(1);
+			studentTriplesIn.increment(numTriplesInRow);
 			// Emit TP-04 and TP-06
 			List<KeyValue> toTransmitCourseZ = new ArrayList<KeyValue>();
 			KeyValue advisorKv = null;
@@ -172,16 +208,20 @@ public class RepartitionLUBMQ9 {
 			 * Also send the student's advisor because we'll join
 			 * ADVISOR and COURSE (to make sure ADVISOR teaches COURSE) on the reducer
 			 */
+			mapperRowsOut.increment(1);
 			for (KeyValue kv : toTransmitCourseZ) {
 				KeyValue[] smallArray = new KeyValue[2];
 				smallArray[0] = kv;
 				smallArray[1] = advisorKv;
+				mapperTriplesOut.increment(2);
 				context.write(new CompositeKeyWritable(kv.getQualifier(),1), new KeyValueArrayWritable(smallArray));
 			}
 		}
 		
 		// If this row is a faculty
 		else if (rowType.equals("ub_Faculty")) {
+			facultyRowsIn.increment(1);
+			facultyTriplesIn.increment(numTriplesInRow);
 			ArrayList<KeyValue> teachesCourses = new ArrayList<KeyValue>();
 			for (KeyValue kv : entireRowAsList) {
 				// Emit TP-05
@@ -193,20 +233,18 @@ public class RepartitionLUBMQ9 {
 			for (KeyValue kv : teachesCourses) {
 				KeyValue[] singleCourse = new KeyValue[1];
 				singleCourse[0] = kv;
+				mapperRowsOut.increment(1);
+				mapperTriplesOut.increment(1);
 				context.write(new CompositeKeyWritable(kv.getQualifier(),2), new KeyValueArrayWritable(singleCourse));
 			}
 		}
 		
 		// If this row is a course
-		// We technically don't use this KV in the reducer but we'll send it anyway in case
-//		else if (rowType.equals("ub_Course")) {
-//			for (KeyValue kv : entireRowAsList) {
-//				if (Arrays.equals(kv.getValue(), "rdf_type".getBytes())) {
-//					toTransmit.add(kv);
-//				}
-//			}
-//			context.write(new Text(value.getRow()), new KeyValueArrayWritable(SharedServices.listToArray(toTransmit)));
-//		}
+		else if (rowType.equals("ub_Course")) {
+			courseRowsIn.increment(1);
+			courseTriplesIn.increment(numTriplesInRow);
+			mapperRowsOut.increment(1); // Since the course is being emitted as the reducer key
+		}
 		// If this row is something else
 		else {
 			return;
@@ -219,6 +257,32 @@ public class RepartitionLUBMQ9 {
 	// Value: All projected attributes for the row key (subject)
 	public static class Stage1_RepartitionReducer extends Reducer<CompositeKeyWritable, KeyValueArrayWritable, Text, Text> {
 
+	    private static Counter studentRowsJoined;
+	    private static Counter courseRowsJoined;
+	    private static Counter facultyRowsJoined;
+	    private static Counter reducerRowsIn;
+	    private static Counter reducerRowsOut;
+	    
+	    private static Counter studentTriplesJoined;
+	    private static Counter courseTriplesJoined;
+	    private static Counter facultyTriplesJoined;
+	    private static Counter reducerTriplesIn;
+	    private static Counter reducerTriplesOut;
+
+	    protected void setup(Context context) throws IOException, InterruptedException {   
+	        courseRowsJoined = context.getCounter(LUBM_ROW_COUNTERS.COURSES_JOINED);
+	        studentRowsJoined = context.getCounter(LUBM_ROW_COUNTERS.STUDENTS_JOINED);
+	        facultyRowsJoined = context.getCounter(LUBM_ROW_COUNTERS.FACULTY_JOINED);
+	        reducerRowsIn = context.getCounter(LUBM_ROW_COUNTERS.REDUCER_IN);
+	        reducerRowsOut = context.getCounter(LUBM_ROW_COUNTERS.REDUCER_OUT);
+	        
+	        courseTriplesJoined = context.getCounter(LUBM_TRIPLE_COUNTERS.COURSES_JOINED);
+	        studentTriplesJoined = context.getCounter(LUBM_TRIPLE_COUNTERS.STUDENTS_JOINED);
+	        facultyTriplesJoined = context.getCounter(LUBM_TRIPLE_COUNTERS.FACULTY_JOINED);
+	        reducerTriplesIn = context.getCounter(LUBM_TRIPLE_COUNTERS.REDUCER_IN);
+	        reducerTriplesOut = context.getCounter(LUBM_TRIPLE_COUNTERS.REDUCER_OUT);
+	    }
+	    
 		public void reduce(CompositeKeyWritable key, Iterable<KeyValueArrayWritable> values, Context context) throws IOException, InterruptedException {
 			/* LUBM QUERY 9
 			   ----------------------------------------
@@ -240,7 +304,9 @@ public class RepartitionLUBMQ9 {
 			HashSet<String> facultyTeachingThisCourse = new HashSet<String>();
 
 			for (KeyValueArrayWritable array : values) {
+				reducerRowsIn.increment(1);
 				for (KeyValue kv : (KeyValue[]) array.toArray()) {
+					reducerTriplesIn.increment(1);
 					if (Arrays.equals(kv.getValue(), "ub_teacherOf".getBytes())) {
 						facultyTeachingThisCourse.add(new String(kv.getRow()));
 					} else if (Arrays.equals(kv.getValue(), "ub_advisor".getBytes())) {
@@ -249,12 +315,32 @@ public class RepartitionLUBMQ9 {
 				}
 			}
 			
+			boolean facultyCounted = false;
 			for (String s : studentHasAdvisor.keySet()) {
 				if (facultyTeachingThisCourse.contains(studentHasAdvisor.get(s))) {
+					// Used to count the faculty only once
+					if (facultyCounted == false) {
+						facultyRowsJoined.increment(1);
+						reducerRowsOut.increment(1);
+						reducerTriplesOut.increment(1);
+						facultyTriplesJoined.increment(1);
+						facultyCounted = true;
+					}
+					studentRowsJoined.increment(1);
+					studentTriplesJoined.increment(1);
+					reducerRowsOut.increment(1);
+					reducerTriplesOut.increment(1);
 					String triple = s + "\t" + studentHasAdvisor.get(s) + "\t" + key;
 					context.write(new Text(triple), new Text());
 				}
-			}			
+			}
+			// If anything was output for this course above, then count the course row as outputted
+			if (facultyCounted) {
+				courseRowsJoined.increment(1);
+				reducerRowsOut.increment(1);
+				courseTriplesJoined.increment(1);
+				reducerTriplesOut.increment(1);
+			}
 		}
 	}
 }
