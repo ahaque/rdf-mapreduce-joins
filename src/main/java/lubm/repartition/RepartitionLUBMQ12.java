@@ -1,7 +1,7 @@
 package lubm.repartition;
 
 /**
- * Sort Merge Join LUBM Q12
+ * Repartition Join LUBM Q12
  * @date May 2014
  * @author Albert Haque
  */
@@ -9,6 +9,9 @@ package lubm.repartition;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
+
+import lubm.sortmerge.LUBMSharedServices.LUBM_ROW_COUNTERS;
+import lubm.sortmerge.LUBMSharedServices.LUBM_TRIPLE_COUNTERS;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
@@ -20,8 +23,10 @@ import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.mapreduce.TableMapReduceUtil;
 import org.apache.hadoop.hbase.mapreduce.TableMapper;
 import org.apache.hadoop.io.Text;
+import org.apache.hadoop.mapreduce.Counter;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Reducer;
+import org.apache.hadoop.mapreduce.Mapper.Context;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 
@@ -98,6 +103,28 @@ public class RepartitionLUBMQ12 {
 	
 	public static class Stage1_RepartitionMapper extends TableMapper<CompositeKeyWritable, KeyValueArrayWritable> {
 		
+		private static Counter facultyRowsIn;
+		private static Counter departmentRowsIn;
+	    private static Counter mapperRowsIn;
+	    private static Counter mapperRowsOut;
+	    
+        private static Counter facultyTriplesIn;
+        private static Counter departmentTriplesIn;
+        private static Counter mapperTriplesIn;
+        private static Counter mapperTriplesOut;
+
+        protected void setup(Context context) throws IOException, InterruptedException {   
+        	facultyRowsIn = context.getCounter(LUBM_ROW_COUNTERS.FACULTY_IN);
+        	departmentRowsIn = context.getCounter(LUBM_ROW_COUNTERS.DEPARTMENTS_IN);
+			mapperRowsIn = context.getCounter(LUBM_ROW_COUNTERS.MAPPER_IN);
+			mapperRowsOut = context.getCounter(LUBM_ROW_COUNTERS.MAPPER_OUT);
+			
+			facultyTriplesIn = context.getCounter(LUBM_TRIPLE_COUNTERS.FACULTY_IN);
+	        departmentTriplesIn = context.getCounter(LUBM_TRIPLE_COUNTERS.DEPARTMENTS_IN);
+	        mapperTriplesIn = context.getCounter(LUBM_TRIPLE_COUNTERS.MAPPER_IN);
+	        mapperTriplesOut = context.getCounter(LUBM_TRIPLE_COUNTERS.MAPPER_OUT);
+        }
+		
 		public void map(ImmutableBytesWritable row, Result value, Context context) throws InterruptedException, IOException {
 		/* LUBM QUERY 12
 		   ----------------------------------------
@@ -109,8 +136,11 @@ public class RepartitionLUBMQ12 {
 			  [TP-04] ?Y ub:subOrganizationOf <http://www.University0.edu>}
 		   ---------------------------------------
 		 */
+			mapperRowsIn.increment(1);
 			// Determine if this row is a student, faculty, or course
 			List<KeyValue> entireRowAsList = value.list();
+			int numTriplesInRow = entireRowAsList.size();
+			mapperTriplesIn.increment(numTriplesInRow);
 			
 			String rowType = null;
 			// Store some information so we only have to loop through all KVs once
@@ -124,19 +154,22 @@ public class RepartitionLUBMQ12 {
 				} // Store faculty information for later
 				else if (Arrays.equals(kv.getValue(), "ub_worksFor".getBytes())) {
 					xWorksForKv = kv;
+					facultyRowsIn.increment(1);
+					facultyTriplesIn.increment(numTriplesInRow);
 				}
 				// Check if a department
 				else if (Arrays.equals(kv.getQualifier(), "ub_Department".getBytes())) {
 					if (Arrays.equals(kv.getValue(), "rdf_type".getBytes())) {
 						rowType = "department";
+						departmentRowsIn.increment(1);
+						departmentTriplesIn.increment(numTriplesInRow);
 					}
 				}
 				// Store subOrganization info for later
 				else if (Arrays.equals(kv.getValue(), "ub_subOrganizationOf".getBytes())) {
-					if (!Arrays.equals(kv.getQualifier(), University.getBytes())) {
-						return;
+					if (Arrays.equals(kv.getQualifier(), University.getBytes())) {
+						ySubOrgOfKv = kv;
 					}
-					ySubOrgOfKv = kv;
 				}
 			}
 			if (rowType == null || (xWorksForKv == null && ySubOrgOfKv == null)) {
@@ -146,8 +179,12 @@ public class RepartitionLUBMQ12 {
 			KeyValue[] smallArray = new KeyValue[1];
 			if (rowType.equals("faculty")) {
 				smallArray[0] = xWorksForKv;
+				mapperRowsOut.increment(1);
+				mapperTriplesOut.increment(1);
 				context.write(new CompositeKeyWritable(xWorksForKv.getQualifier(),1), new KeyValueArrayWritable(smallArray));
 			} else if (rowType.equals("department") && ySubOrgOfKv != null) {
+				mapperRowsOut.increment(1);
+				mapperTriplesOut.increment(1);
 				smallArray[0] = ySubOrgOfKv;
 				context.write(new CompositeKeyWritable(ySubOrgOfKv.getRow(),2), new KeyValueArrayWritable(smallArray));
 			}
@@ -158,6 +195,28 @@ public class RepartitionLUBMQ12 {
 	// Key: HBase Row Key (subject)
 	// Value: All projected attributes for the row key (subject)
 	public static class Stage1_RepartitionReducer extends Reducer<CompositeKeyWritable, KeyValueArrayWritable, Text, Text> {
+		
+		private static Counter facultyRowsJoined;
+		private static Counter departmentRowsJoined;
+	    private static Counter reducerRowsIn;
+	    private static Counter reducerRowsOut;
+	    
+		private static Counter facultyTriplesJoined;
+		private static Counter departmentTriplesJoined;
+	    private static Counter reducerTriplesIn;
+	    private static Counter reducerTriplesOut;
+
+        protected void setup(Context context) throws IOException, InterruptedException {   
+        	facultyRowsJoined = context.getCounter(LUBM_ROW_COUNTERS.FACULTY_JOINED);
+        	departmentRowsJoined = context.getCounter(LUBM_ROW_COUNTERS.DEPARTMENTS_JOINED);
+        	reducerRowsIn = context.getCounter(LUBM_ROW_COUNTERS.REDUCER_IN);
+        	reducerRowsOut = context.getCounter(LUBM_ROW_COUNTERS.REDUCER_OUT);
+			
+            facultyTriplesJoined = context.getCounter(LUBM_TRIPLE_COUNTERS.FACULTY_JOINED);
+            departmentTriplesJoined = context.getCounter(LUBM_TRIPLE_COUNTERS.DEPARTMENTS_JOINED);
+            reducerTriplesIn = context.getCounter(LUBM_TRIPLE_COUNTERS.REDUCER_IN);
+            reducerTriplesOut = context.getCounter(LUBM_TRIPLE_COUNTERS.REDUCER_OUT);
+        }
 
 		public void reduce(CompositeKeyWritable key, Iterable<KeyValueArrayWritable> values, Context context) throws IOException, InterruptedException {
 			/* LUBM QUERY 12
@@ -176,7 +235,9 @@ public class RepartitionLUBMQ12 {
 			boolean validSuborgOf = false;
 			
 			for (KeyValueArrayWritable array : values) {
+				reducerRowsIn.increment(1);
 				for (KeyValue kv : (KeyValue[]) array.toArray()) {
+					reducerTriplesIn.increment(1);
 					if (Arrays.equals(kv.getValue(), "ub_worksFor".getBytes())) {
 						chair = new String(kv.getRow());
 						department = new String(kv.getQualifier());
@@ -187,6 +248,12 @@ public class RepartitionLUBMQ12 {
 			}
 			
 			if (validSuborgOf == true && chair != null && department != null) {
+				reducerRowsOut.increment(2); // One for faculty, one for department
+				reducerTriplesOut.increment(2);
+				facultyRowsJoined.increment(1);
+				departmentRowsJoined.increment(1);
+				facultyTriplesJoined.increment(1);
+				departmentTriplesJoined.increment(1);
 				context.write(new Text(chair + "\t" + department), new Text());
 			}
 		}

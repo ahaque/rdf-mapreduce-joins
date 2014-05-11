@@ -283,6 +283,11 @@ public class RepartitionLUBMQ9 {
 	        reducerTriplesOut = context.getCounter(LUBM_TRIPLE_COUNTERS.REDUCER_OUT);
 	    }
 	    
+	    /**
+	     * REDUCER KEY: COURSE
+	     * REDUCER VALUES:  (student ub_advisor advisor)
+	     * 					(student ub_takes course)
+	     * 					(faculty teacherOf course) */
 		public void reduce(CompositeKeyWritable key, Iterable<KeyValueArrayWritable> values, Context context) throws IOException, InterruptedException {
 			/* LUBM QUERY 9
 			   ----------------------------------------
