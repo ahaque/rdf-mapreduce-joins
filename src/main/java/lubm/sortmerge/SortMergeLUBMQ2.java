@@ -1,17 +1,20 @@
 package lubm.sortmerge;
 
 /**
- * Sort Merge Join LUBM Q2
+ * SortMerge Join LUBM Q2
  * @date May 2014
  * @author Albert Haque
  */
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+
+import lubm.sortmerge.LUBMSharedServices;
+import lubm.sortmerge.LUBMSharedServices.LUBM_ROW_COUNTERS;
+import lubm.sortmerge.LUBMSharedServices.LUBM_TRIPLE_COUNTERS;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
@@ -22,25 +25,19 @@ import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.mapreduce.TableMapReduceUtil;
 import org.apache.hadoop.hbase.mapreduce.TableMapper;
-import org.apache.hadoop.hbase.util.Bytes;
-import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
+import org.apache.hadoop.mapreduce.Counter;
 import org.apache.hadoop.mapreduce.Job;
-import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.Reducer;
-import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
-import org.apache.hadoop.mapreduce.lib.input.TextInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 
 import bsbm.sortmerge.KeyValueArrayWritable;
-import bsbm.sortmerge.SharedServices;
 
 
 public class SortMergeLUBMQ2 {
 	
 	// Begin Query Information
-	
 	// End Query Information
 		
 	public static void main(String[] args) throws ClassNotFoundException, IOException, InterruptedException {
@@ -60,7 +57,6 @@ public class SortMergeLUBMQ2 {
 	    hConf.set("hbase.zookeeper.property.clientPort", "2181");
 		
 		startJob_Stage1(args, hConf);
-		startJob_Stage2(args);
 	}
 	
 	public static Job startJob_Stage1(String[] args, Configuration hConf) throws IOException {
@@ -87,7 +83,9 @@ public class SortMergeLUBMQ2 {
 		// Reducer settings
 		job1.setReducerClass(Stage1_SortMergeReducer.class);  
 		job1.setOutputFormatClass(TextOutputFormat.class);
-		FileOutputFormat.setOutputPath(job1, new Path("output/LUBM-Q2-SortMerge/Stage1"));
+		job1.setNumReduceTasks(1);
+		
+		FileOutputFormat.setOutputPath(job1, new Path("output/LUBM-Q2-SortMerge"));
 
 		try {
 			job1.waitForCompletion(true);
@@ -97,33 +95,40 @@ public class SortMergeLUBMQ2 {
 		return job1;
 	}
 	
-	public static Job startJob_Stage2(String[] args) throws IOException, ClassNotFoundException, InterruptedException {
-		Configuration conf = new Configuration();
-        
-	    @SuppressWarnings("deprecation")
-		Job job = new Job(conf, "LUBM-Q2-SortMerge-Stage2");
-	    job.setJarByClass(SortMergeLUBMQ2.class);
-	    job.setOutputKeyClass(Text.class);
-	    job.setOutputValueClass(Text.class);
-	    job.setMapperClass(Stage2_SortMergeMapper.class);
-	    job.setReducerClass(Stage2_SortMergeReducer.class);
-	    job.setInputFormatClass(TextInputFormat.class);
-	    job.setOutputFormatClass(TextOutputFormat.class);
-	        
-	    FileInputFormat.addInputPath(job, new Path("output/LUBM-Q2-SortMerge/Stage1"));
-	    FileOutputFormat.setOutputPath(job, new Path("output/LUBM-Q2-SortMerge/Stage2"));
-
-	    try {
-			job.waitForCompletion(true);
-		} catch (ClassNotFoundException e) { e.printStackTrace(); }
-		  catch (InterruptedException e) { e.printStackTrace();}
-
-		return job;
-	 }
-	
-	
-	
 	public static class Stage1_SortMergeMapper extends TableMapper<Text, KeyValueArrayWritable> {
+		
+		private static String[] typesToCheck = {
+			"ub_GraduateStudent",
+			"ub_University",
+			"ub_Department",
+		};
+		
+		private static Counter gradStudentRowsIn;
+		private static Counter universityRowsIn;
+		private static Counter departmentRowsIn;
+	    private static Counter mapperRowsIn;
+	    private static Counter mapperRowsOut;
+	    
+        private static Counter gradStudentTriplesIn;
+        private static Counter universityTriplesIn;
+        private static Counter departmentTriplesIn;
+        private static Counter mapperTriplesIn;
+        private static Counter mapperTriplesOut;
+	    
+
+        protected void setup(Context context) throws IOException, InterruptedException {   
+			gradStudentRowsIn = context.getCounter(LUBM_ROW_COUNTERS.GRAD_STUDENTS_IN);
+			universityRowsIn = context.getCounter(LUBM_ROW_COUNTERS.UNIVERSITIES_IN);
+			departmentRowsIn = context.getCounter(LUBM_ROW_COUNTERS.DEPARTMENTS_IN);
+			mapperRowsIn = context.getCounter(LUBM_ROW_COUNTERS.MAPPER_IN);
+			mapperRowsOut = context.getCounter(LUBM_ROW_COUNTERS.MAPPER_OUT);
+			
+	        gradStudentTriplesIn = context.getCounter(LUBM_TRIPLE_COUNTERS.GRAD_STUDENTS_IN);
+	        universityTriplesIn = context.getCounter(LUBM_TRIPLE_COUNTERS.UNIVERSITIES_IN);
+	        departmentTriplesIn = context.getCounter(LUBM_TRIPLE_COUNTERS.DEPARTMENTS_IN);
+	        mapperTriplesIn = context.getCounter(LUBM_TRIPLE_COUNTERS.MAPPER_IN);
+	        mapperTriplesOut = context.getCounter(LUBM_TRIPLE_COUNTERS.MAPPER_OUT);
+        }
 		
 		public void map(ImmutableBytesWritable row, Result value, Context context) throws InterruptedException, IOException {
 		/* LUBM QUERY 2
@@ -140,67 +145,63 @@ public class SortMergeLUBMQ2 {
 		  [TP-06] ?X ub:undergraduateDegreeFrom ?Y}
 		   ---------------------------------------
 		 */
-			// Determine if this row is a grad student, university, or department
-			
-			// TP-01, TP-02, TP-03
-			byte[] x_type = value.getValue(SharedServices.CF_AS_BYTES, Bytes.toBytes("ub_GraduateStudent"));
-			byte[] y_type = value.getValue(SharedServices.CF_AS_BYTES, Bytes.toBytes("ub_University"));
-			byte[] z_type = value.getValue(SharedServices.CF_AS_BYTES, Bytes.toBytes("ub_Department"));
-
+			mapperRowsIn.increment(1);
 			List<KeyValue> entireRowAsList = value.list();
-			List<KeyValue> toTransmit = new ArrayList<KeyValue>();
+			int numTriplesInRow =entireRowAsList.size();
+			mapperTriplesIn.increment(numTriplesInRow);
 			
+			// Determine if this row is a grad student, university, or department
+			// TP-01, TP-02, TP-03
+			String realRowType = LUBMSharedServices.getTypeFromHBaseRow(value, typesToCheck);
+			if (realRowType == null) {
+				return;
+			}
+
 			// If this row is a grad student
-			if (x_type != null) {
+			if (realRowType.equals("ub_GraduateStudent")) {
+				gradStudentRowsIn.increment(1);
+				gradStudentTriplesIn.increment(numTriplesInRow);
 				// Emit TP-06
-				byte[] y_reducerKey = null;
-				byte[] z_reducerKey = null;
-				List<KeyValue> toTransmitY = new ArrayList<KeyValue>();
-				List<KeyValue> toTransmitZ = new ArrayList<KeyValue>();
+				KeyValue xUndergradFrom = null;
+				KeyValue xMemberOfDept = null;
 				for (KeyValue kv : entireRowAsList) {
 					if (Arrays.equals(kv.getValue(), "ub_undergraduateDegreeFrom".getBytes())) {
-						toTransmitY.add(kv);
-						// y_reducer key is the university
-						y_reducerKey = kv.getQualifier();
+						xUndergradFrom = kv;
 					} else if (Arrays.equals(kv.getValue(), "ub_memberOf".getBytes())) {
-						toTransmitZ.add(kv);
-						// z_reducer key is the department
-						z_reducerKey = kv.getQualifier();
-					} else if (Arrays.equals(kv.getValue(), "rdf_type".getBytes())) {
-						toTransmitY.add(kv);
-						toTransmitZ.add(kv);
-					} 
-				}
-				// Send this twice. Once for joining with Y and once for joining with Z
-				context.write(new Text(y_reducerKey), new KeyValueArrayWritable(SharedServices.listToArray(toTransmitY)));
-				context.write(new Text(z_reducerKey), new KeyValueArrayWritable(SharedServices.listToArray(toTransmitZ)));
-			} 
-			
-			// If this row is a university
-			else if (y_type != null) {
-				for (KeyValue kv : entireRowAsList) {
-					if (Arrays.equals(kv.getValue(), "rdf_type".getBytes())) {
-						toTransmit.add(kv);
+						xMemberOfDept = kv;
 					}
 				}
-				context.write(new Text(value.getRow()), new KeyValueArrayWritable(SharedServices.listToArray(toTransmit)));
+				KeyValue[] toSend = new KeyValue[] {xMemberOfDept, xUndergradFrom};
+				// Send the student to the reducer which handles their university
+				// but also send their current department affiliation as well; we'll use this later
+				mapperRowsOut.increment(1);
+				mapperTriplesOut.increment(2);
+				context.write(new Text(xUndergradFrom.getQualifier()), new KeyValueArrayWritable(toSend));
+			}
+			
+			// If this row is a university
+			else if (realRowType.equals("ub_University")) {
+				// We already did the rdf_type check and since each reducer represents a university
+				// We don't need to send anything
+				universityRowsIn.increment(1);
+				universityTriplesIn.increment(numTriplesInRow);
+				mapperRowsOut.increment(1);
+				mapperTriplesOut.increment(1);
 			}
 			
 			// If this row is a department
-			else if (z_type != null) {
+			else if (realRowType.equals("ub_Department")) {
+				departmentRowsIn.increment(1);
+				departmentTriplesIn.increment(numTriplesInRow);
+				KeyValue[] toSend = new KeyValue[1];
 				for (KeyValue kv : entireRowAsList) {
 					if (Arrays.equals(kv.getValue(), "ub_subOrganizationOf".getBytes())) {
-						toTransmit.add(kv);
-					} else if (Arrays.equals(kv.getValue(), "rdf_type".getBytes())) {
-						toTransmit.add(kv);
-					} 
+						toSend[0] = kv;
+					}
 				}
-				context.write(new Text(value.getRow()), new KeyValueArrayWritable(SharedServices.listToArray(toTransmit)));
-			} 
-			
-			// If this row is something else
-			else {
-				return;
+				mapperRowsOut.increment(1);
+				mapperTriplesOut.increment(1);
+				context.write(new Text(toSend[0].getQualifier()), new KeyValueArrayWritable(toSend));
 			}
 		}
 	}
@@ -210,118 +211,86 @@ public class SortMergeLUBMQ2 {
 	// Value: All projected attributes for the row key (subject)
 	public static class Stage1_SortMergeReducer extends Reducer<Text, KeyValueArrayWritable, Text, Text> {
 
+		
+		private static Counter gradStudentRowsJoined;
+		private static Counter departmentRowsJoined;
+		private static Counter universityRowsJoined;
+	    private static Counter reducerRowsIn;
+	    private static Counter reducerRowsOut;
+	    
+		private static Counter gradStudentTriplesJoined;
+		private static Counter departmentTriplesJoined;
+		private static Counter universityTriplesJoined;
+;
+        private static Counter reducerTriplesIn;
+        private static Counter reducerTriplesOut;
+
+        protected void setup(Context context) throws IOException, InterruptedException {   
+        	gradStudentRowsJoined = context.getCounter(LUBM_ROW_COUNTERS.GRAD_STUDENTS_JOINED);
+        	departmentRowsJoined = context.getCounter(LUBM_ROW_COUNTERS.DEPARTMENTS_JOINED);
+        	universityRowsJoined = context.getCounter(LUBM_ROW_COUNTERS.UNIVERSITIES_JOINED);
+        	reducerRowsIn = context.getCounter(LUBM_ROW_COUNTERS.REDUCER_IN);
+			reducerRowsOut = context.getCounter(LUBM_ROW_COUNTERS.REDUCER_OUT);
+			
+            gradStudentTriplesJoined = context.getCounter(LUBM_TRIPLE_COUNTERS.GRAD_STUDENTS_JOINED);
+            departmentTriplesJoined = context.getCounter(LUBM_TRIPLE_COUNTERS.DEPARTMENTS_JOINED);
+            universityTriplesJoined = context.getCounter(LUBM_TRIPLE_COUNTERS.UNIVERSITIES_JOINED);
+            reducerTriplesIn = context.getCounter(LUBM_TRIPLE_COUNTERS.REDUCER_IN);
+            reducerTriplesOut = context.getCounter(LUBM_TRIPLE_COUNTERS.REDUCER_OUT);
+        }
+		
+        /**
+         * REDUCER KEY: UNIVERSITY
+         * REDUCER VALUES:	(student ub_memberOf department)
+         * 					(student undergradFrom university)
+         * 					(department suborgOf university) */
 		public void reduce(Text key, Iterable<KeyValueArrayWritable> values, Context context) throws IOException, InterruptedException {
-			/* LUBM QUERY 2
-			   ----------------------------------------
-			SELECT ?X, ?Y, ?Z
-			WHERE
-			{ [TP-01] ?X rdf:type ub:GraduateStudent .
-			  [TP-02] ?Y rdf:type ub:University .
-			  [TP-03] ?Z rdf:type ub:Department .
-			  [TP-04] ?X ub:memberOf ?Z .
-			  [TP-05] ?Z ub:subOrganizationOf ?Y .
-			  [TP-06] ?X ub:undergraduateDegreeFrom ?Y}
-			   ---------------------------------------
-			 */
+		/* LUBM QUERY 2
+		   ----------------------------------------
+		SELECT ?X, ?Y, ?Z
+		WHERE
+		{ [TP-01] ?X rdf:type ub:GraduateStudent .
+		  [TP-02] ?Y rdf:type ub:University .
+		  [TP-03] ?Z rdf:type ub:Department .
+		  [TP-04] ?X ub:memberOf ?Z .
+		  [TP-05] ?Z ub:subOrganizationOf ?Y .
+		  [TP-06] ?X ub:undergraduateDegreeFrom ?Y}
+		   ---------------------------------------
+		 */
+			// The students X at this reducer went to Y university for their undergrad
+			// We have to check if they are part of a department Z where dept Z is part of university Y
+			HashMap<String, String> studentMemberOfDepartment = new HashMap<String, String>();
+			HashSet<String> departmentsPartOfThisUniversity = new HashSet<String>();
 
-			// Find out if this is X JOIN Y or X JOIN Z
+			// Populate the hash data structures
 			for (KeyValueArrayWritable array : values) {
+				reducerRowsIn.increment(1);
 				for (KeyValue kv : (KeyValue[]) array.toArray()) {
-					// X JOIN Z
+					reducerTriplesIn.increment(1);
 					if (Arrays.equals(kv.getValue(), "ub_memberOf".getBytes())) {
-						String temp = new String(kv.getRow()) + "\t" + new String(kv.getValue()) + "\t" + new String(kv.getQualifier());
-						context.write(new Text("XZ"), new Text(temp));
-						break;
-					}
-					// X JOIN Y
-					else if (Arrays.equals(kv.getValue(), "ub_undergraduateDegreeFrom".getBytes())) {
-						String temp = new String(kv.getRow()) + "\t" + new String(kv.getValue()) + "\t" + new String(kv.getQualifier());
-						context.write(new Text("XY"), new Text(temp));
-						break;
-					}
-					// SETTING UP FOR Y JOIN Z - We output the Z tuples (departments)
-					else if (Arrays.equals(kv.getValue(), "ub_subOrganizationOf".getBytes())) {
-						String temp = new String(kv.getRow()) + "\t" + new String(kv.getValue()) + "\t" + new String(kv.getQualifier());
-						context.write(new Text("ZY"), new Text(temp));
-						break;
-					}
-				}
-			}
-		}
-	}
-	
-	/**
-	 * LUBM Q2 Stage 2 Mapper
-	 * Read the intermediate results from Stage 1, send to reducers for Y JOIN Z
-	 * @author Albert
-	 */
-	public static class Stage2_SortMergeMapper extends Mapper<LongWritable, Text, Text, Text> {
-		public void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
-			String[] line = value.toString().split("\\s+");
-			// line[0, 1, 2, 3]
-			// <join> <subject> <predicate> <object>
-			// We're sending everything to the university
-			// LINE: <grad student> <undergradFrom> <university>
-			if (line[0].equals("XY")) {
-				context.write(new Text(line[3]), new Text(line[1] + "\t" + line[2] + "\t" + line[3]));
-			} else
-			// LINE: <grad student> <member of> <department>
-			if (line[0].equals("XZ")) {
-				String university = line[3].substring(line[3].indexOf("University"));
-				context.write(new Text(university), new Text(line[1] + "\t" + line[2] + "\t" + line[3]));
-			}
-			// Send the department
-			// LINE: <department> <subOrgOf> <university>
-			else if (line[0].equals("ZY")) {
-				context.write(new Text(line[3]), new Text(line[1] + "\t" + line[2] + "\t" + line[3]));
-			}
-		}
-	}
-	
-	public static class Stage2_SortMergeReducer extends Reducer<Text, Text, Text, Text> {
-		public void reduce(Text key, Iterable<Text> values, Context context) throws IOException, InterruptedException {
-
-			// Key: department, Value: grad students
-			HashMap<String, ArrayList<String>> gradStudentDepartment = new HashMap<String, ArrayList<String>>();
-			HashSet<String> gradStudentUndergradVerified = new HashSet<String>();
-			HashSet<String> departmentVerified = new HashSet<String>();
-
-			// Perform the Y JOIN Z operation
-			for (Text val : values) {
-				String[] line = val.toString().split("\\s+");
-				// If this department is a suborg of the university, then join condition is true
-				// We already know this is true otherwise this tuple won't be here
-				if (line[1].equals("ub_subOrganizationOf")) {
-					departmentVerified.add(line[0]);
-				}
-				// Make sure the grad student went here for undergrad
-				else if (line[1].equals("ub_undergraduateDegreeFrom")) {
-					gradStudentUndergradVerified.add(line[0]);
-				}
-				// We know the grad student is a member of this department and went to KEY for undergrad
-				else if (line[1].equals("ub_memberOf")) {
-					if (gradStudentDepartment.containsKey(line[2])) {
-						gradStudentDepartment.get(line[2]).add(line[0]);
-					} else {
-						ArrayList<String> students = new ArrayList<String>();
-						students.add(line[0]);
-						gradStudentDepartment.put(line[2], students);
+						studentMemberOfDepartment.put(new String(kv.getRow()), new String(kv.getQualifier()));
+					} else if (Arrays.equals(kv.getValue(), "ub_subOrganizationOf".getBytes())) {
+						departmentsPartOfThisUniversity.add(new String(kv.getRow()));
 					}
 				}
 			}
 			
-			// Only write the departments that belong in this university
-			for (String department : departmentVerified) {
-				for (String student : gradStudentDepartment.get(department)) {
-					// Make sure the grad student went here for undergrad
-					if (!gradStudentUndergradVerified.contains(student)) {
-						continue;
-					}
-					String result = student + "\t" + key.toString() + "\t" + department;
-					context.write(new Text(result), new Text());
+			// We know TP-06 has been satisfied. Now we need to check TP-05. (TP-04 was handled by the map phase)
+			for (String s : studentMemberOfDepartment.keySet()) {
+				// If the student's current department is a part of this (reducer's key) university
+				if (departmentsPartOfThisUniversity.contains(studentMemberOfDepartment.get(s))) {
+					// (student memberOf department), (dept subOrg of University), (student undergradFrom university)
+					reducerTriplesOut.increment(3); 
+					reducerRowsOut.increment(3);
+					gradStudentRowsJoined.increment(1);
+					departmentRowsJoined.increment(1);
+					universityRowsJoined.increment(1);
+					gradStudentTriplesJoined.increment(2);
+					departmentTriplesJoined.increment(1);
+					universityTriplesJoined.increment(1);
+					context.write(new Text(s + "\t" + studentMemberOfDepartment.get(s) + "\t" + key), new Text());
 				}
 			}
-			
 		}
 	}
 }

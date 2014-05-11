@@ -4,7 +4,6 @@ import java.util.Arrays;
 
 import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.client.Result;
-import org.apache.hadoop.hbase.util.Bytes;
 
 import bsbm.sortmerge.SharedServices;
 
